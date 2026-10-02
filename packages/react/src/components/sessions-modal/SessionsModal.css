@@ -83,11 +83,7 @@ html.dark .pollar-sessions-modal {
   text-transform: uppercase;
 }
 
-.pollar-sessions-current-device {
-  color: var(--pollar-text);
-  font-size: 1rem;
-  font-weight: 700;
-}
+.pollar-sessions-current-device { color: var(--pollar-text); font-size: 1rem; font-weight: 700; }
 
 .pollar-sessions-current-status {
   display: flex;
@@ -105,11 +101,7 @@ html.dark .pollar-sessions-modal {
   box-shadow: 0 0 0 3px color-mix(in srgb, #16a34a 15%, transparent);
 }
 
-.pollar-sessions-other-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
+.pollar-sessions-other-section { display: flex; flex-direction: column; gap: 0.65rem; }
 
 .pollar-sessions-section-title {
   display: flex;
@@ -118,9 +110,7 @@ html.dark .pollar-sessions-modal {
   margin: 0 0 0.1rem;
 }
 
-.pollar-sessions-section-title span {
-  color: var(--pollar-accent);
-}
+.pollar-sessions-section-title span { color: var(--pollar-accent); }
 
 .pollar-sessions-grid {
   display: grid;
@@ -139,12 +129,7 @@ html.dark .pollar-sessions-modal {
   background: transparent;
 }
 
-.pollar-sessions-item-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
+.pollar-sessions-item-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 
 .pollar-sessions-item-icon {
   display: grid;
@@ -165,10 +150,7 @@ html.dark .pollar-sessions-modal {
   white-space: nowrap;
 }
 
-.pollar-sessions-item-meta {
-  color: var(--pollar-muted);
-  font-size: 0.75rem;
-}
+.pollar-sessions-item-meta { color: var(--pollar-muted); font-size: 0.75rem; }
 
 .pollar-sessions-item-revoke {
   display: grid;
@@ -182,10 +164,7 @@ html.dark .pollar-sessions-modal {
   background: color-mix(in srgb, var(--pollar-accent) 7%, var(--pollar-bg));
   color: var(--pollar-muted);
   cursor: pointer;
-  transition:
-    background-color 150ms,
-    border-color 150ms,
-    color 150ms;
+  transition: background-color 150ms, border-color 150ms, color 150ms;
 }
 
 .pollar-sessions-item-revoke:hover:not(:disabled) {
@@ -195,10 +174,7 @@ html.dark .pollar-sessions-modal {
 }
 
 .pollar-sessions-item-revoke:disabled,
-.pollar-sessions-logout-all:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
+.pollar-sessions-logout-all:disabled { cursor: not-allowed; opacity: 0.5; }
 
 .pollar-sessions-action-error {
   padding: 0.7rem 0.85rem;
@@ -234,10 +210,7 @@ html.dark .pollar-sessions-modal {
   font-size: 0.875rem;
   font-weight: 700;
   cursor: pointer;
-  transition:
-    background-color 150ms,
-    opacity 150ms,
-    box-shadow 150ms;
+  transition: background-color 150ms, opacity 150ms, box-shadow 150ms;
 }
 
 .pollar-sessions-logout-all:hover:not(:disabled) {
@@ -245,26 +218,14 @@ html.dark .pollar-sessions-modal {
   box-shadow: 0 5px 14px color-mix(in srgb, var(--pollar-error-text, #dc2626) 22%, transparent);
 }
 
-.pollar-sessions-logout-all:disabled {
-  background: var(--pollar-error-text, #dc2626);
-}
+.pollar-sessions-logout-all:disabled { background: var(--pollar-error-text, #dc2626); }
 
 .pollar-sessions-item-revoke:focus-visible,
 .pollar-sessions-logout-all:focus-visible,
-.pollar-modal-close:focus-visible {
-  outline: 2px solid var(--pollar-accent);
-  outline-offset: 2px;
-}
+.pollar-modal-close:focus-visible { outline: 2px solid var(--pollar-accent); outline-offset: 2px; }
 
 @media (max-width: 480px) {
-  .pollar-sessions-modal {
-    max-width: 100%;
-  }
-  .pollar-sessions-grid {
-    grid-template-columns: 1fr;
-  }
-  .pollar-sessions-current-card {
-    min-height: 200px;
-    padding: 1.5rem 1rem;
-  }
+  .pollar-sessions-modal { max-width: 100%; }
+  .pollar-sessions-grid { grid-template-columns: 1fr; }
+  .pollar-sessions-current-card { min-height: 200px; padding: 1.5rem 1rem; }
 }

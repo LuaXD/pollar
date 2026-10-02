@@ -84,13 +84,7 @@ export function RefreshIcon({ spinning = false, className = '' }: { spinning?: b
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path
-        d="M14.8747 2.125V5.66667H11.333"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d="M14.8747 2.125V5.66667H11.333" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <path
         d="M14.875 8.5C14.875 10.1908 14.2033 11.8123 13.0078 13.0078C11.8123 14.2033 10.1908 14.875 8.5 14.875C6.7178 14.8683 5.00719 14.1729 3.72583 12.9342L2.125 11.3333"
         stroke="currentColor"
@@ -98,13 +92,7 @@ export function RefreshIcon({ spinning = false, className = '' }: { spinning?: b
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <path
-        d="M2.125 14.875V11.3333H5.66667"
-        stroke="currentColor"
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d="M2.125 14.875V11.3333H5.66667" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

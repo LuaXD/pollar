@@ -2,7 +2,7 @@
 
 import { EnabledAssetRecord, StellarNetwork, WalletBalanceRecord, WalletBalanceState, WalletChain } from '@pollar/core';
 import { resolveChain } from '../ChainSelect';
-import { BusyOverlay, cropAddress, PollarModalFooter, RefreshIcon, useStickyData } from '../commons';
+import { BusyOverlay, CopyButton, cropAddress, PollarModalFooter, RefreshIcon, useStickyData } from '../commons';
 import { buildModalCssVars, type ModalStyleOverrides } from '../modal-theme';
 
 // Stellar amounts are int64 scaled by 10^7, so 7 decimals is the ledger's exact
@@ -62,7 +62,7 @@ function BalanceItem({
 }: {
   record: WalletBalanceRecord;
   faucet: FaucetHint | null;
-  metadata?: EnabledAssetRecord | undefined;
+  metadata?: EnabledAssetRecord;
 }) {
   const balanceDiffers = record.balance !== record.available;
   const secondary = metadata?.name ?? (record.issuer ? cropAddress(record.issuer) : 'Native asset');
@@ -124,6 +124,7 @@ export function WalletBalanceModalTemplate({
   accentColor,
   styleOverrides,
   walletBalance,
+  walletAddress,
   assetMetadata = [],
   selectedChain,
   network,

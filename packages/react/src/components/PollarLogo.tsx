@@ -2,7 +2,7 @@ import type { SVGProps } from 'react';
 
 export function PollarLogo(props: SVGProps<SVGSVGElement>) {
   return (
-    <svg {...props} width="45" height="48" viewBox="0 0 45 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <svg width="45" height="48" viewBox="0 0 45 48" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path
         d="M27.2476 11.7526L23.3926 10.0529L24.6679 9.14844L26.8168 9.19868L27.7248 10.3873L27.2476 11.7526Z"
         fill="#005DB4"

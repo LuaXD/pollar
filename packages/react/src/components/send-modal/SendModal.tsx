@@ -1,7 +1,7 @@
 'use client';
 
 import { toBaseUnits, WalletBalanceRecord, WalletChain } from '@pollar/core';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePollar } from '../../context';
 import { useChains } from '../../useChains';
 import { resolveChain } from '../ChainSelect';
@@ -77,20 +77,14 @@ export function SendModal({ onClose }: SendModalProps) {
   const balanceData = walletBalance.step === 'loaded' ? walletBalance.data : null;
   // Only the picked network's assets. The backend returns every chain in one
   // payload, so this is a local filter - switching networks costs no request.
-  const allAssets = useMemo(
-    () => (balanceData?.balances ?? []).filter((b) => resolveChain(b.chain) === selectedChain),
-    [balanceData, selectedChain],
-  );
+  const allAssets = (balanceData?.balances ?? []).filter((b) => resolveChain(b.chain) === selectedChain);
   // App assets first, then native XLM (always, even at 0, so the user knows to
   // fund) and any other non-app asset the wallet actually holds.
-  const sortedAssets = useMemo(
-    () => [
-      ...allAssets.filter((b) => b.enabledInApp),
-      // An unreadable balance (null) is not a positive one, so it stays out.
-      ...allAssets.filter((b) => !b.enabledInApp && (b.type === 'native' || parseFloat(b.balance ?? '0') > 0)),
-    ],
-    [allAssets],
-  );
+  const sortedAssets = [
+    ...allAssets.filter((b) => b.enabledInApp),
+    // An unreadable balance (null) is not a positive one, so it stays out.
+    ...allAssets.filter((b) => !b.enabledInApp && (b.type === 'native' || parseFloat(b.balance ?? '0') > 0)),
+  ];
 
   // Auto-select the first asset once balances load (no "Select asset" step).
   // Switching networks strands the previous chain's asset, so it is dropped and
