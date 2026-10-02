@@ -1,12 +1,12 @@
 export { PollarProvider, usePollar } from './context';
 export { createPollarAdapterHook } from './adapterHooks';
 export type {
-    AuthProviderProps,
-    AuthContextValue,
-    LoginButtonProps,
-    AuthModalProps,
-    PollarStyles,
-    PollarConfig,
+  AuthProviderProps,
+  AuthContextValue,
+  LoginButtonProps,
+  AuthModalProps,
+  PollarStyles,
+  PollarConfig,
 } from './types';
 export { WalletButton } from './components/wallet-button/WalletButton';
 
@@ -29,4 +29,3 @@ export { TxHistoryModalTemplate } from './components/tx-history-modal/TxHistoryM
 export { WalletBalanceModalTemplate } from './components/wallet-balance-modal/WalletBalanceModalUI';
 export type { WalletBalanceModalTemplateProps } from './components/wallet-balance-modal/WalletBalanceModalUI';
 export { WalletButtonTemplate } from './components/wallet-button/WalletButtonUI';
-

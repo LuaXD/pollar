@@ -47,7 +47,9 @@ export function Profile() {
   return (
     <View>
       <Text>Wallet: {walletAddress}</Text>
-      <TouchableOpacity onPress={logout}><Text>Sign out</Text></TouchableOpacity>
+      <TouchableOpacity onPress={logout}>
+        <Text>Sign out</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -64,17 +66,17 @@ Context provider that initialises the Pollar client and makes it available to ch
   config={{
     apiKey: 'your-api-key',
     baseUrl: 'https://sdk.api.pollar.xyz', // optional
-    stellarNetwork: 'testnet',             // optional, default: 'testnet'
+    stellarNetwork: 'testnet', // optional, default: 'testnet'
   }}
 >
   {children}
 </PollarProvider>
 ```
 
-| Prop     | Type                | Required | Description                              |
-| -------- | ------------------- | -------- | ---------------------------------------- |
-| `config` | `PollarClientConfig`| Yes      | Configuration passed to `PollarClient`   |
-| `styles` | `PollarStyles`      | No       | Style overrides (theme, accent, providers) |
+| Prop     | Type                 | Required | Description                                |
+| -------- | -------------------- | -------- | ------------------------------------------ |
+| `config` | `PollarClientConfig` | Yes      | Configuration passed to `PollarClient`     |
+| `styles` | `PollarStyles`       | No       | Style overrides (theme, accent, providers) |
 
 ---
 
@@ -84,19 +86,19 @@ Returns the authentication and SDK context.
 
 ```ts
 const {
-  isAuthenticated,  // boolean — true when a valid session exists
-  walletAddress,    // string — public key of the authenticated wallet
-  login,            // (options: PollarLoginOptions) => void
-  logout,           // () => void
-  buildTx,          // (operation, params, options?) => Promise<void>
-  signAndSubmitTx,  // (unsignedXdr: string) => Promise<void>
-  transaction,      // TransactionState — current transaction state
-  txHistory,        // TxHistoryState — transaction history
-  network,          // StellarNetwork — current network
-  setNetwork,       // (network: StellarNetwork) => void
-  getClient,        // () => PollarClient
-  config,           // PollarConfig — remote app configuration
-  styles,           // PollarStyles — resolved styles
+  isAuthenticated, // boolean — true when a valid session exists
+  walletAddress, // string — public key of the authenticated wallet
+  login, // (options: PollarLoginOptions) => void
+  logout, // () => void
+  buildTx, // (operation, params, options?) => Promise<void>
+  signAndSubmitTx, // (unsignedXdr: string) => Promise<void>
+  transaction, // TransactionState — current transaction state
+  txHistory, // TxHistoryState — transaction history
+  network, // StellarNetwork — current network
+  setNetwork, // (network: StellarNetwork) => void
+  getClient, // () => PollarClient
+  config, // PollarConfig — remote app configuration
+  styles, // PollarStyles — resolved styles
   openLoginModal,
   openTransactionModal,
   openKycModal,
