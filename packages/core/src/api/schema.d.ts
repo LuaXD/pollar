@@ -6917,6 +6917,10 @@ export interface operations {
                                 minAmount?: number;
                                 maxAmount?: number;
                             }[];
+                            unavailable?: {
+                                provider: string;
+                                code: string;
+                            }[];
                         };
                     };
                 };
