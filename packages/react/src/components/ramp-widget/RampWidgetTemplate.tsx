@@ -48,7 +48,7 @@ export interface RampFieldSpec {
   key: string;
   label: string;
   type: 'text' | 'email' | 'tel' | 'select';
-  bankType?: 'CLABE' | 'PIX' | 'PSE' | 'ACH' | 'BREB';
+  bankType?: string;
   /** For `type: 'select'` - dropdown choices (e.g. Stereum's Bolivian banks). */
   options?: { value: string; label: string; placeholder?: string }[];
   /** Declared but not mandatory (Abroad's tax id). Blank must not block Continue. */
@@ -84,6 +84,8 @@ function placeholderFor(field: RampFieldSpec, fields: RampFieldSpec[], values: R
 }
 
 interface RampWidgetTemplateProps {
+  workflowContent?: React.ReactNode;
+  routeSelector?: React.ReactNode;
   theme: string;
   accentColor: string;
   /** Per-app modal chrome overrides (background, card + button radius). */
@@ -175,6 +177,8 @@ function displayValue(field: RampInstructionField): string {
 }
 
 export function RampWidgetTemplate({
+  workflowContent,
+  routeSelector,
   theme,
   accentColor,
   styleOverrides,
@@ -479,7 +483,9 @@ export function RampWidgetTemplate({
         </>
       )}
 
-      {step === 'status' && (
+      {step === 'input' && routeSelector}
+      {step === 'status' && workflowContent}
+      {step === 'status' && !workflowContent && (
         <div className="pollar-ramp-payment">
           <div className="pollar-ramp-payment-field">
             <span className="pollar-ramp-payment-label">Provider</span>

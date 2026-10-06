@@ -137,6 +137,7 @@ export function ActionState({ action }: { action: ReturnType<typeof useAction> }
   );
 }
 export function Choice<T extends string>({
+  labels,
   label,
   options,
   value,
@@ -144,6 +145,7 @@ export function Choice<T extends string>({
 }: {
   label: string;
   options: readonly T[];
+  labels?: Partial<Record<T, string>>;
   value: T;
   onChange: (value: T) => void;
 }) {
@@ -157,7 +159,7 @@ export function Choice<T extends string>({
             key={option}
             accessibilityRole="radio"
             accessibilityState={{ checked: option === value }}
-            accessibilityLabel={option}
+            accessibilityLabel={labels?.[option] ?? option}
             onPress={() => onChange(option)}
             style={{
               borderWidth: 1,
@@ -169,7 +171,7 @@ export function Choice<T extends string>({
               maxWidth: '100%',
             }}
           >
-            <Text style={{ color: option === value ? '#fff' : c.text }}>{option}</Text>
+            <Text style={{ color: option === value ? '#fff' : c.text }}>{labels?.[option] ?? option}</Text>
           </Pressable>
         ))}
       </View>

@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Linking, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import type {
+  RampRoute,
   DistributionRule,
   EarnOpportunity,
   EarnProviderId,
@@ -14,6 +15,8 @@ import type {
   RampsTransactionResponse,
   RampsOnrampResponse,
 } from '@pollar/core';
+import { mergeRampSnapshot } from '@pollar/core';
+import { RampWorkflow } from './ramp-widget/RampWorkflow';
 import { usePollar } from '../context';
 import { ActionButton, ActionState, Card, Choice, Field, Label, ResultView, useAction } from './native-ui';
 
@@ -772,8 +775,44 @@ export function RampPanel() {
   const [quoteId, setQuoteId] = useState('');
   const [fields, setFields] = useState<Record<string, string>>({});
   const transaction = p.ramp?.transaction;
-  const setTransaction = (next: RampsOnrampResponse | RampsTransactionResponse | undefined) =>
-    p.setRamp(next ? { direction, transaction: next } : null);
+  const transactionRef = useRef(transaction);
+  transactionRef.current = transaction;
+  const setTransaction = (next: RampsOnrampResponse | RampsTransactionResponse | undefined) => {
+    const accepted = next ? mergeRampSnapshot(transactionRef.current, next) : undefined;
+    transactionRef.current = accepted;
+    p.setRamp(accepted ? { direction, transaction: accepted } : null);
+  };
+  const [routes, setRoutes] = useState<RampRoute[]>([]);
+  const [routeId, setRouteId] = useState('');
+  useEffect(() => {
+    let active = true;
+    void p
+      .getClient()
+      .getRampRoutes()
+      .then((result) => {
+        if (active) setRoutes(result.routes);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [p.getClient]);
+  useEffect(() => {
+    if (!transaction || ['completed', 'failed'].includes(transaction.status)) return;
+    let active = true;
+    const timer = setInterval(() => {
+      void p
+        .getRampTransaction(transaction.txId)
+        .then((next) => {
+          if (active) setTransaction(next);
+        })
+        .catch(() => {});
+    }, 5000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [transaction?.txId, transaction?.status, p.getRampTransaction]);
   const quote = quotes.find((q) => q.quoteId === quoteId);
   const clearQuotes = () => {
     setQuotes([]);
@@ -788,7 +827,9 @@ export function RampPanel() {
       quoteId,
       country,
       currency,
-      amount: Number(amount),
+      amount: quote.fiatAmount ?? Number(amount),
+      ...(quote.terms ? { amountExact: quote.terms.fiatAmount } : {}),
+      ...(Object.keys(fields).length ? { fields } : {}),
       walletAddress: p.walletAddress,
       ...(fields.email ? { email: fields.email } : {}),
       ...(fields.fullName ? { fullName: fields.fullName } : {}),
@@ -810,6 +851,29 @@ export function RampPanel() {
   }
   return (
     <Card title="Ramp">
+      {!transaction && routes.length > 0 && (
+        <Choice
+          label="Asset and payment route"
+          value={routeId}
+          options={routes.map((route) => route.routeId)}
+          labels={Object.fromEntries(
+            routes.map((route) => [
+              route.routeId,
+              `${route.direction} · ${route.fiatCurrency} / ${route.asset.code} · ${route.asset.chain} · ${route.rail}`,
+            ]),
+          )}
+          onChange={(value) => {
+            const route = routes.find((item) => item.routeId === value);
+            setRouteId(value);
+            if (route) {
+              setCountry(route.country);
+              setCurrency(route.fiatCurrency);
+              setDirection(route.direction);
+              clearQuotes();
+            }
+          }}
+        />
+      )}
       <ActionButton
         title="Load supported countries"
         disabled={action.busy}
@@ -856,7 +920,14 @@ export function RampPanel() {
             disabled={action.busy || !country || !currency || Number(amount) <= 0}
             onPress={() =>
               void action.run(async () => {
-                const q = await p.getRampsQuote({ country, currency, amount: Number(amount), direction });
+                const q = await p.getRampsQuote({
+                  country,
+                  currency,
+                  amount: Number(amount),
+                  amountExact: amount,
+                  direction,
+                  ...(routeId ? { routeId, chain: routes.find((route) => route.routeId === routeId)!.asset.chain } : {}),
+                });
                 setQuotes(q.quotes);
                 return q;
               })
@@ -904,67 +975,78 @@ export function RampPanel() {
         </>
       ) : (
         <>
-          <Label>Provider status: {transaction.status}</Label>
-          <ResultView value={transaction} />
-          {transaction.kycUrl && (
-            <ActionButton
-              title="Open provider verification"
-              onPress={() => void action.run(() => Linking.openURL(transaction.kycUrl!))}
+          {transaction.transactionVersion !== undefined ? (
+            <RampWorkflow
+              client={p.getClient()}
+              snapshot={transaction}
+              onChange={(next) => setTransaction(next as RampsTransactionResponse)}
+              copyText={p.copyText}
             />
-          )}
-          {'tosUrl' in transaction && transaction.tosUrl && (
-            <ActionButton
-              title="Open provider terms"
-              onPress={() => void action.run(() => Linking.openURL((transaction as RampsOnrampResponse).tosUrl!))}
-            />
-          )}
-          {transaction.depositInstructions?.scannable?.payload && (
-            <ActionButton
-              title="Copy payment instructions"
-              onPress={() =>
-                void action.run(async () => {
-                  await p.copyText(transaction.depositInstructions!.scannable!.payload!);
-                  return 'Copied';
-                })
-              }
-            />
-          )}
-          {'pendingSignature' in transaction && transaction.pendingSignature && (
-            <ActionButton
-              title="Sign provider request"
-              disabled={action.busy}
-              onPress={() =>
-                void action.run(async () => {
-                  const pending = (transaction as RampsOnrampResponse).pendingSignature!;
-                  const signed = await p.signTx(pending.unsignedXdr, { skipSponsorship: pending.action === 'sep10' });
-                  if (signed.status !== 'signed') return signed;
-                  const next = await p.submitRampSignature(transaction.txId, {
-                    signedXdr: signed.signedXdr,
-                    action: pending.action,
-                  });
-                  setTransaction(next);
-                  return next;
-                })
-              }
-            />
-          )}
-          <ActionButton
-            title="Refresh provider status"
-            disabled={action.busy}
-            onPress={() =>
-              void action.run(async () => {
-                const next = await p.getRampTransaction(transaction.txId);
-                setTransaction(next);
-                return next;
-              })
-            }
-          />
-          {direction === 'offramp' && transaction.status === 'pending' && (
-            <ActionButton
-              title="Complete withdrawal after verification"
-              disabled={action.busy}
-              onPress={() => void action.run(() => p.completeWithdraw(transaction.txId))}
-            />
+          ) : (
+            <>
+              <Label>Provider status: {transaction.status}</Label>
+              <ResultView value={transaction} />
+              {transaction.kycUrl && (
+                <ActionButton
+                  title="Open provider verification"
+                  onPress={() => void action.run(() => Linking.openURL(transaction.kycUrl!))}
+                />
+              )}
+              {'tosUrl' in transaction && transaction.tosUrl && (
+                <ActionButton
+                  title="Open provider terms"
+                  onPress={() => void action.run(() => Linking.openURL((transaction as RampsOnrampResponse).tosUrl!))}
+                />
+              )}
+              {transaction.depositInstructions?.scannable?.payload && (
+                <ActionButton
+                  title="Copy payment instructions"
+                  onPress={() =>
+                    void action.run(async () => {
+                      await p.copyText(transaction.depositInstructions!.scannable!.payload!);
+                      return 'Copied';
+                    })
+                  }
+                />
+              )}
+              {'pendingSignature' in transaction && transaction.pendingSignature && (
+                <ActionButton
+                  title="Sign provider request"
+                  disabled={action.busy}
+                  onPress={() =>
+                    void action.run(async () => {
+                      const pending = (transaction as RampsOnrampResponse).pendingSignature!;
+                      const signed = await p.signTx(pending.unsignedXdr, { skipSponsorship: pending.action === 'sep10' });
+                      if (signed.status !== 'signed') return signed;
+                      const next = await p.submitRampSignature(transaction.txId, {
+                        signedXdr: signed.signedXdr,
+                        action: pending.action,
+                      });
+                      setTransaction(next);
+                      return next;
+                    })
+                  }
+                />
+              )}
+              <ActionButton
+                title="Refresh provider status"
+                disabled={action.busy}
+                onPress={() =>
+                  void action.run(async () => {
+                    const next = await p.getRampTransaction(transaction.txId);
+                    setTransaction(next);
+                    return next;
+                  })
+                }
+              />
+              {direction === 'offramp' && transaction.status === 'pending' && (
+                <ActionButton
+                  title="Complete withdrawal after verification"
+                  disabled={action.busy}
+                  onPress={() => void action.run(() => p.completeWithdraw(transaction.txId))}
+                />
+              )}
+            </>
           )}
           {['completed', 'failed'].includes(transaction.status) && (
             <ActionButton title="New ramp transaction" onPress={() => setTransaction(undefined)} />

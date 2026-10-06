@@ -1,5 +1,7 @@
 import type { PollarApiClient } from '../client';
 import type {
+  RampContinuationBody,
+  RampsRoutesResponse,
   RampRail,
   RampsCompleteResponse,
   RampsCountriesResponse,
@@ -172,4 +174,19 @@ export async function pollRampTransaction(
     await new Promise((r) => setTimeout(r, intervalMs));
   }
   throw new Error('Ramp transaction polling timed out');
+}
+
+export async function getRampRoutes(api: PollarApiClient): Promise<RampsRoutesResponse> {
+  const { data, error } = await api.GET('/ramps/routes');
+  if (!data?.content || error) throw rampApiError(error, 'Failed to get ramp routes');
+  return data.content;
+}
+export async function continueRamp(
+  api: PollarApiClient,
+  txId: string,
+  body: RampContinuationBody,
+): Promise<RampsTransactionResponse> {
+  const { data, error } = await api.POST('/ramps/transaction/{txId}/continue', { params: { path: { txId } }, body });
+  if (!data?.content || error) throw rampApiError(error, 'Failed to continue ramp');
+  return data.content;
 }

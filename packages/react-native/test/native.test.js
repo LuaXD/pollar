@@ -16,6 +16,7 @@ jest.mock('react-native-safe-area-context', () => {
   return { SafeAreaProvider: View, SafeAreaView: View };
 });
 jest.mock('@pollar/core', () => ({
+  ...jest.requireActual('@pollar/core'),
   PollarClient: jest.fn(),
   isPollarClient: (value) => value?.__client === true,
   AUTH_ERROR_CODES: {},
@@ -84,6 +85,7 @@ function fakeClient() {
     'refreshBalance',
   ])
     client[name] = jest.fn(async () => {});
+  client.getRampRoutes = jest.fn(async () => ({ routes: [] }));
   client.getAppConfig = jest.fn(async () => config);
   client.logout = jest.fn(async () => {
     client.auth = { step: 'idle' };
@@ -458,4 +460,101 @@ test('ramp uses real quotes and preserves a pending transaction across panel rem
   expect(view.getByText('Provider status: pending')).toBeTruthy();
   expect(view.queryByText('Funds Added')).toBeNull();
   expect(client.createOnRamp).toHaveBeenCalledTimes(1);
+});
+
+test('registered future-chain route drives the native widget and resumes without signing again', async () => {
+  const core = jest.requireActual('@pollar/core');
+  const client = fakeClient();
+  client.auth = { step: 'authenticated', verified: true, session: { clientSessionId: 'fixture-session' } };
+  const route = {
+    routeId: 'fixture:PE:offramp',
+    direction: 'offramp',
+    country: 'PE',
+    fiatCurrency: 'PEN',
+    rail: 'FUTURE_BANK',
+    asset: { code: 'NATIVE', identifier: null, chain: 'FUTURE_CHAIN', network: 'mainnet', precision: 12 },
+    limits: { denomination: 'crypto', min: '0.000000000001', max: '100' },
+    providerId: 'fixture-provider',
+    provider: 'Registered fixture',
+    capabilities: { polling: true, callbacks: true, refunds: 'unsupported', continuations: ['user_ready', 'signed_payload'] },
+  };
+  const transaction = {
+    txId: 'fixture-tx',
+    provider: 'Registered fixture',
+    status: 'pending',
+    lifecycleState: 'awaiting_payment',
+    transactionVersion: 2,
+    reconciliationRequired: false,
+    terms: {
+      fiatAmount: '20.00',
+      fiatCurrency: 'PEN',
+      cryptoAmount: '1.123456789012',
+      feeAmount: '0',
+      feeCurrency: 'PEN',
+      assetCode: 'NATIVE',
+      assetIssuer: null,
+      assetChain: 'FUTURE_CHAIN',
+    },
+    nextAction: {
+      kind: 'sign_transaction',
+      actionId: 'fixture-action',
+      purpose: 'withdrawal_payment',
+      chain: 'FUTURE_CHAIN',
+      network: 'mainnet',
+      challengeRef: 'fixture-step',
+      payload: { encoding: 'fixture-json', value: 'unsigned' },
+      expiresAt: new Date(Date.now() + 60000).toISOString(),
+    },
+  };
+  client.getRampRoutes.mockResolvedValue({ routes: [route] });
+  client.getRampsQuote.mockResolvedValue({
+    quotes: [
+      {
+        quoteId: 'fixture-quote',
+        provider: 'Registered fixture',
+        rail: 'FUTURE_BANK',
+        requiredFields: [],
+        fiatAmount: 20,
+        terms: transaction.terms,
+      },
+    ],
+  });
+  client.createOffRamp.mockResolvedValue(transaction);
+  client.getRampTransaction.mockResolvedValue(transaction);
+  client.continueRamp = jest.fn(async () => ({
+    ...transaction,
+    transactionVersion: 3,
+    nextAction: { kind: 'wait', actionId: 'wait', reason: 'settlement_verification' },
+  }));
+  client._rampSigners = new core.RampSigningRegistry();
+  client.signRampAction = core.PollarClient.prototype.signRampAction;
+  const signer = jest.fn(async () => 'signed:unsigned');
+  core.PollarClient.prototype.registerRampSigningHandler.call(client, 'FUTURE_CHAIN', 'fixture-json', signer);
+  const view = await renderAsync(
+    <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
+      <RampPanel key="first" />
+    </PollarProvider>,
+  );
+  await waitFor(() => expect(view.getByText(/PEN \/ NATIVE/)).toBeTruthy());
+  fireEvent.press(view.getByText(/PEN \/ NATIVE/));
+  fireEvent.changeText(view.getByLabelText('Amount'), '20');
+  await act(async () => fireEvent.press(view.getByText('Get ramp quotes')));
+  expect(client.getRampsQuote).toHaveBeenCalledWith(
+    expect.objectContaining({ chain: 'FUTURE_CHAIN', routeId: route.routeId, currency: 'PEN' }),
+  );
+  fireEvent.press(view.getByText('Select Registered fixture'));
+  await act(async () => fireEvent.press(view.getByText('Confirm offramp')));
+  expect(client.createOffRamp).toHaveBeenCalledWith(expect.objectContaining({ amountExact: '20.00' }));
+  expect(signer).not.toHaveBeenCalled();
+  expect(view.getByText(/1.123456789012 NATIVE/)).toBeTruthy();
+  await act(async () => fireEvent.press(view.getByText('Authorize')));
+  expect(signer).toHaveBeenCalledTimes(1);
+  await view.rerenderAsync(
+    <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
+      <RampPanel key="second" />
+    </PollarProvider>,
+  );
+  await waitFor(() => expect(view.getByText('Confirming settlement')).toBeTruthy());
+  expect(signer).toHaveBeenCalledTimes(1);
+  expect(client.createOffRamp).toHaveBeenCalledTimes(1);
 });

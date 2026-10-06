@@ -98,3 +98,5 @@ export { WalletBalanceModalTemplate } from './components/wallet-balance-modal/Wa
 export type { WalletBalanceModalTemplateProps } from './components/wallet-balance-modal/WalletBalanceModalUI';
 export { WalletButtonTemplate } from './components/wallet-button/WalletButtonUI';
 export type { WalletButtonTemplateProps } from './components/wallet-button/WalletButtonUI';
+
+export { RampWorkflow } from './components/ramp-widget/RampWorkflow';
