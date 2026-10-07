@@ -33,7 +33,7 @@ function describeDevice(s: SessionInfo): string {
 
 function normalizeDeviceLabel(label: string): string {
   const parts = label.split(/\s+[—–-]\s+|\s+·\s+/);
-  if (parts.length === 2) return `${parts[0]} · ${parts[1].toLowerCase()}`;
+  if (parts.length === 2 && parts[1] !== undefined) return `${parts[0]} · ${parts[1].toLowerCase()}`;
   return label;
 }
 

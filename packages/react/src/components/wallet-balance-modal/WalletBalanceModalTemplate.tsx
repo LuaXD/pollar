@@ -62,7 +62,7 @@ function BalanceItem({
 }: {
   record: WalletBalanceRecord;
   faucet: FaucetHint | null;
-  metadata?: EnabledAssetRecord;
+  metadata?: EnabledAssetRecord | undefined;
 }) {
   const balanceDiffers = record.balance !== record.available;
   const secondary = metadata?.name ?? (record.issuer ? cropAddress(record.issuer) : 'Native asset');
