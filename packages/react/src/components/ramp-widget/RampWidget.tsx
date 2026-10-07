@@ -148,9 +148,10 @@ export function RampWidget({ onClose }: RampWidgetProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [pendingKyc, setPendingKyc] = useState<{
     rampProviderId: string;
+    kycProviderId: string;
     corridorId: string;
-    quote: RampQuote;
   } | null>(null);
+  const [noticeMsg, setNoticeMsg] = useState<string | null>(null);
   const kycAttempt = useRef<typeof pendingKyc>(null);
   useEffect(
     () => () => {
@@ -304,6 +305,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
     setDepositInstructions(null);
     setKycPending(false);
     setKycApproved(false);
+    setNoticeMsg(null);
     if (!keepMessage) setErrorMsg(null);
   }
 
@@ -370,6 +372,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
   function handleSelectQuote(quote: RampQuote) {
     setSelectedQuote(quote);
     setErrorMsg(null);
+    setNoticeMsg(null);
     // The limits are per route, and the amount was typed before the routes were
     // known - so this is the first moment we can check it. Catching it here
     // states the figure without spending a round trip on a certain rejection.
@@ -393,7 +396,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
     if (selectedQuote) void startRamp(selectedQuote);
   }
 
-  async function startRamp(quote: RampQuote, allowKycPrompt = true) {
+  async function startRamp(quote: RampQuote) {
     setIsLoading(true);
     setErrorMsg(null);
     try {
@@ -421,15 +424,44 @@ export function RampWidget({ onClose }: RampWidgetProps) {
       await applyResult(result);
     } catch (e) {
       const requirement = requiredRampKyc(e);
-      if (requirement && allowKycPrompt) {
+      if (requirement) {
         setStep(requiredFieldsOf(quote).length ? 'contact' : 'select_route');
         setErrorMsg('Identity verification is required before continuing.');
-        const pending = { rampProviderId: requirement.rampProviderId, corridorId: requirement.corridorId, quote };
-        kycAttempt.current = pending;
-        setPendingKyc(pending);
+        kycAttempt.current = requirement;
+        setPendingKyc(requirement);
         return;
       }
       setErrorMsg(rampErrorMessage(e, 'Failed to start the ramp.'));
+      setStep('error');
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  /**
+   * Back to the route list with fresh prices for the same input. A verification
+   * takes minutes and quotes live about as long, so the one that hit the gate is
+   * usually expired by now; the user picks again rather than an order starting on
+   * a price they did not see.
+   */
+  async function requoteAfterKyc() {
+    setStep('loading_quote');
+    setIsLoading(true);
+    setErrorMsg(null);
+    setSelectedQuote(null);
+    try {
+      const result = await client.getRampsQuote({ country, amount: Number(amount), currency, direction });
+      const list = result.quotes ?? [];
+      if (list.length === 0) {
+        setErrorMsg(`No ramp providers available for ${country} yet.`);
+        setStep('error');
+        return;
+      }
+      setQuotes(list);
+      setNoticeMsg('Your identity is verified. Prices may have changed, so choose a route to continue.');
+      setStep('select_route');
+    } catch (e) {
+      setErrorMsg(rampErrorMessage(e, 'Failed to fetch quotes.'));
       setStep('error');
     } finally {
       setIsLoading(false);
@@ -477,13 +509,13 @@ export function RampWidget({ onClose }: RampWidgetProps) {
   const flowSteps = flowStepsOf(quotes, selectedQuote);
   const flowStepIndex = flowSteps.indexOf(STEP_LABEL[step] ?? '');
 
-  // Keep this widget mounted so cancelling KYC preserves the user's form.
-  // Approval retries the exact authorized quote once, never a new price/order.
+  // Keep this widget's state while KYC is open so cancelling preserves the form.
   if (pendingKyc) {
     return (
       <KycModal
         country={country}
         corridorId={pendingKyc.corridorId}
+        providerId={pendingKyc.kycProviderId}
         onClose={() => {
           kycAttempt.current = null;
           setPendingKyc(null);
@@ -492,9 +524,8 @@ export function RampWidget({ onClose }: RampWidgetProps) {
           // Ignore duplicate approvals or polling that finishes after cancellation.
           if (kycAttempt.current !== pendingKyc) return;
           kycAttempt.current = null;
-          const quote = pendingKyc.quote;
           setPendingKyc(null);
-          void startRamp(quote, false);
+          void requoteAfterKyc();
         }}
       />
     );
@@ -537,6 +568,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
         canComplete={canComplete}
         completing={completing}
         errorMsg={errorMsg}
+        noticeMsg={noticeMsg}
         onDirectionChange={setDirection}
         onAmountChange={(next) => {
           // Editing the amount is the user acting on the limit message, so it

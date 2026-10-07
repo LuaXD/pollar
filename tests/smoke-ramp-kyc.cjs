@@ -10,15 +10,22 @@ const output = ts.transpileModule(source, { compilerOptions: { module: ts.Module
 const scope = { exports: {} };
 vm.runInNewContext(output, scope);
 const { requiredRampKyc } = scope.exports;
-const error = { code: 'SDK_RAMPS_KYC_REQUIRED', body: { rampProviderId: 'ramp-a', kycProviderId: 'option-a', corridorId: 'corridor-a' } };
+const error = {
+  code: 'SDK_RAMPS_KYC_REQUIRED',
+  body: { rampProviderId: 'ramp-a', kycProviderId: 'option-a', corridorId: 'corridor-a' },
+};
 assert.equal(requiredRampKyc(error).rampProviderId, 'ramp-a');
 assert.equal(requiredRampKyc(error).kycProviderId, 'option-a');
-for (const invalid of [null, new Error('SDK_RAMPS_KYC_REQUIRED'),
+for (const invalid of [
+  null,
+  new Error('SDK_RAMPS_KYC_REQUIRED'),
   { ...error, code: 'SDK_RAMPS_PROVIDER_NOT_CONFIGURED' },
   { ...error, code: 'SDK_RAMPS_ANCHOR_ERROR' },
-  { ...error, body: undefined }, { ...error, body: { rampProviderId: 'ramp-a' } },
+  { ...error, body: undefined },
+  { ...error, body: { rampProviderId: 'ramp-a' } },
   { ...error, body: { rampProviderId: '', kycProviderId: 'option-a' } },
-  { ...error, body: { rampProviderId: 'ramp-a', kycProviderId: 42 } }]) {
+  { ...error, body: { rampProviderId: 'ramp-a', kycProviderId: 42 } },
+]) {
   assert.equal(requiredRampKyc(invalid), null);
 }
 console.log('Ramp KYC gate accepts only explicit scoped backend requirements');
@@ -35,63 +42,126 @@ const { createRoot } = require('react-dom/client');
 let rampProps;
 let kycProps;
 let client;
-const widgetSource = fs.readFileSync(path.join(__dirname, '../packages/react/src/components/ramp-widget/RampWidget.tsx'), 'utf8');
-const widgetOutput = ts.transpileModule(widgetSource, { compilerOptions: {
-  module: ts.ModuleKind.CommonJS, jsx: ts.JsxEmit.ReactJSX,
-} }).outputText;
-const widgetScope = { exports: {}, setInterval, clearInterval, require: (id) => {
-  if (id.startsWith('react')) return require(id);
-  if (id === '../../context') return { usePollar: () => ({ getClient: () => client, styles: {}, network: 'testnet', wallet: { address: 'wallet' }, signTx: () => { throw new Error('must not sign before approval'); } }) };
-  if (id === './RampWidgetTemplate') return { RampWidgetTemplate: (props) => { rampProps = props; kycProps = null; return null; } };
-  if (id === '../kyc-modal/KycModal') return { KycModal: (props) => { kycProps = props; return null; } };
-  if (id === '../modal-theme') return { modalChrome: () => ({}) };
-  if (id === './ramp-kyc') return { requiredRampKyc };
-  if (id.endsWith('.css')) return {};
-  throw new Error(`Unexpected import: ${id}`);
-} };
+const widgetSource = fs.readFileSync(
+  path.join(__dirname, '../packages/react/src/components/ramp-widget/RampWidget.tsx'),
+  'utf8',
+);
+const widgetOutput = ts.transpileModule(widgetSource, {
+  compilerOptions: {
+    module: ts.ModuleKind.CommonJS,
+    jsx: ts.JsxEmit.ReactJSX,
+  },
+}).outputText;
+const widgetScope = {
+  exports: {},
+  setInterval,
+  clearInterval,
+  require: (id) => {
+    if (id.startsWith('react')) return require(id);
+    if (id === '../../context')
+      return {
+        usePollar: () => ({
+          getClient: () => client,
+          styles: {},
+          network: 'testnet',
+          wallet: { address: 'wallet' },
+          signTx: () => {
+            throw new Error('must not sign before approval');
+          },
+        }),
+      };
+    if (id === './RampWidgetTemplate')
+      return {
+        RampWidgetTemplate: (props) => {
+          rampProps = props;
+          kycProps = null;
+          return null;
+        },
+      };
+    if (id === '../kyc-modal/KycModal')
+      return {
+        KycModal: (props) => {
+          kycProps = props;
+          return null;
+        },
+      };
+    if (id === '../modal-theme') return { modalChrome: () => ({}) };
+    if (id === './ramp-kyc') return { requiredRampKyc };
+    if (id.endsWith('.css')) return {};
+    throw new Error(`Unexpected import: ${id}`);
+  },
+};
 vm.runInNewContext(widgetOutput, widgetScope);
 
 async function exercise(direction, outcome) {
   let attempts = 0;
+  let quoteCalls = 0;
   const bodies = [];
-  const quote = { quoteId: 'same-quote', provider: 'Test ramp' };
+  const quote = { quoteId: 'first-quote', provider: 'Test ramp' };
+  const fresh = { quoteId: 'fresh-quote', provider: 'Test ramp' };
   async function start(body) {
     attempts++;
     bodies.push(body);
-    if (attempts === 1 || outcome === 'repeat-gate') throw error;
-    if (outcome === 'expired') throw { code: 'SDK_RAMPS_QUOTE_EXPIRED' };
+    if (attempts === 1) throw error;
     return { txId: 'tx', provider: 'Test ramp', status: 'completed' };
   }
   client = {
     getRampCountries: async () => ({ countries: [{ code: 'BO', currency: 'BOB' }] }),
-    getRampsQuote: async () => ({ quotes: [quote] }),
-    createOnRamp: start, createOffRamp: start,
+    getRampsQuote: async () => {
+      quoteCalls++;
+      if (quoteCalls === 1) return { quotes: [quote] };
+      if (outcome === 'requote-fails') throw { code: 'SDK_RAMPS_ANCHOR_ERROR' };
+      if (outcome === 'requote-empty') return { quotes: [] };
+      return { quotes: [fresh] };
+    },
+    createOnRamp: start,
+    createOffRamp: start,
   };
   const container = document.createElement('div');
   document.body.appendChild(container);
   const root = createRoot(container);
   await React.act(async () => root.render(React.createElement(widgetScope.exports.RampWidget, { onClose() {} })));
-  await React.act(async () => { rampProps.onAmountChange('10'); rampProps.onDirectionChange(direction); });
+  await React.act(async () => {
+    rampProps.onAmountChange('10');
+    rampProps.onDirectionChange(direction);
+  });
   await React.act(async () => rampProps.onFindRoute());
   await React.act(async () => rampProps.onSelectQuote(quote));
   assert.equal(attempts, 1);
   assert.equal(kycProps.corridorId, 'corridor-a');
+  assert.equal(kycProps.providerId, 'option-a'); // the gate's option opens directly
   assert.equal(kycProps.country, 'BO');
   const approve = kycProps.onApproved;
   if (outcome === 'cancel') {
     await React.act(async () => kycProps.onClose());
-    await React.act(async () => approve()); // A late poll after cancellation must not transact.
+    await React.act(async () => approve()); // A late poll after cancellation must not transact or re-quote.
     assert.equal(attempts, 1);
+    assert.equal(quoteCalls, 1);
     assert.equal(rampProps.amount, '10');
     assert.equal(rampProps.direction, direction);
     assert.equal(rampProps.step, 'select_route');
   } else {
-    await React.act(async () => { approve(); approve(); }); // Duplicate notifications retry once only.
-    assert.equal(attempts, 2);
-    assert.equal(bodies[1].quoteId, bodies[0].quoteId);
-    assert.equal(bodies[1].amount, 10);
+    await React.act(async () => {
+      approve();
+      approve();
+    }); // Duplicate notifications re-quote once only.
     assert.equal(kycProps, null);
-    assert.equal(rampProps.step, outcome === 'approve' ? 'status' : 'error');
+    assert.equal(quoteCalls, 2);
+    assert.equal(attempts, 1); // Approval never starts an order by itself.
+    if (outcome === 'approve') {
+      assert.equal(rampProps.step, 'select_route');
+      assert.deepEqual(rampProps.quotes, [fresh]);
+      assert.match(rampProps.noticeMsg, /verified/);
+      assert.equal(rampProps.amount, '10');
+      assert.equal(rampProps.direction, direction);
+      await React.act(async () => rampProps.onSelectQuote(fresh));
+      assert.equal(attempts, 2);
+      assert.equal(bodies[1].quoteId, 'fresh-quote');
+      assert.equal(bodies[1].amount, 10);
+      assert.equal(rampProps.step, 'status');
+    } else {
+      assert.equal(rampProps.step, 'error');
+    }
   }
   await React.act(async () => root.unmount());
   container.remove();
@@ -99,8 +169,13 @@ async function exercise(direction, outcome) {
 
 (async () => {
   for (const direction of ['onramp', 'offramp']) {
-    for (const outcome of ['cancel', 'approve', 'repeat-gate', 'expired']) await exercise(direction, outcome);
+    for (const outcome of ['cancel', 'approve', 'requote-fails', 'requote-empty']) await exercise(direction, outcome);
   }
-  console.log('Buy/Sell open KYC; cancel preserves input; approval retries once; repeated gates and expired quotes stop safely');
+  console.log(
+    'Buy/Sell open the gate option; cancel preserves input; approval re-quotes once and waits for the user to choose',
+  );
   dom.window.close();
-})().catch((error) => { console.error(error); process.exitCode = 1; });
+})().catch((error) => {
+  console.error(error);
+  process.exitCode = 1;
+});

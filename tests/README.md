@@ -226,10 +226,15 @@ needed. Both assertions fail against the provider that predates the fix.
 ### Ramp KYC UI handoff
 
 Run `node tests/smoke-ramp-kyc.cjs` to test the real RampWidget hooks with mocked
-API/presentation. Both Buy and Sell open scoped KYC on the explicit backend gate.
+API/presentation. Both Buy and Sell open the KYC option the backend gate names.
 Cancellation and late approval preserve the form without continuing; approval
-retries the original quote once, and duplicate approvals, repeated gates and
-expired quotes stop safely. No live vendor requests or transactions are made.
+fetches fresh quotes once for the same input and returns to the route list, so
+no order starts on a quote the user did not see. A failed or empty re-quote
+stops on the error step. No live vendor requests or transactions are made.
+
+`node tests/smoke-kyc.cjs` covers the core KYC calls (typed errors, idempotency
+key, settled polling) and `node tests/smoke-kyc-modal.cjs` the web modal (gate
+option opened directly, error codes, manual review, expiry).
 
 - Node ≥ 20 (the SDK runtime floor)
 - Built `dist/` (run `npm run build` first)
