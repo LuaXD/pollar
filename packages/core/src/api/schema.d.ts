@@ -6928,6 +6928,21 @@ export interface operations {
                                 minAmount?: number;
                                 maxAmount?: number;
                             }[];
+                            /** @description Providers that serve this route but failed to quote it just now, with the ErrorCode of the failure. Returned on /v2 only. */
+                            unavailable?: {
+                                provider: string;
+                                code: string;
+                            }[];
+                            /** @description Routes not quoted because their corridor requires a KYC the user has not passed. Complete `kycProviderId` with this `corridorId` (the /kyc routes), then quote again. `status`: none (never started), pending (in progress or held for review, see `reviewReason`), rejected, expired. Returned on /v2 only. */
+                            kycRequired?: {
+                                provider: string;
+                                rampProviderId: string;
+                                corridorId: string;
+                                kycProviderId: string;
+                                /** @enum {string} */
+                                status: "none" | "pending" | "rejected" | "expired";
+                                reviewReason?: string;
+                            }[];
                         };
                     };
                 };

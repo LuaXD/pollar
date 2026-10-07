@@ -955,6 +955,11 @@ export type RampsQuoteQuery = NonNullable<pollarPaths['/ramps/quote']['get']['pa
 export type RampQuote =
   pollarPaths['/ramps/quote']['get']['responses'][200]['content']['application/json']['content']['quotes'][number];
 export type RampsQuoteResponse = pollarPaths['/ramps/quote']['get']['responses'][200]['content']['application/json']['content'];
+/**
+ * A route left out of the quotes because its corridor needs a KYC the user has
+ * not passed. Open KYC on `kycProviderId` for `corridorId`, then quote again.
+ */
+export type RampQuoteKycRequirement = NonNullable<RampsQuoteResponse['kycRequired']>[number];
 
 export type RampsOnrampBody = NonNullable<pollarPaths['/ramps/onramp']['post']['requestBody']>['content']['application/json'];
 export type RampsOnrampResponse =
