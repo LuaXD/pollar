@@ -236,6 +236,11 @@ stops on the error step. No live vendor requests or transactions are made.
 key, settled polling) and `node tests/smoke-kyc-modal.cjs` the web modal (gate
 option opened directly, error codes, manual review, expiry).
 
+`node tests/smoke-rn-kyc.cjs` runs the React Native KycModal and RampWidget with
+`react-native` mocked as plain components: the hosted KYC page goes to the
+system browser and the status is checked on return to the app; the ramp gate
+opens the named option and approval re-quotes without starting an order.
+
 - Node ≥ 20 (the SDK runtime floor)
 - Built `dist/` (run `npm run build` first)
 - No external services — tests are fully self-contained

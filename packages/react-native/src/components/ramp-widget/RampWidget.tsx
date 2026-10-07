@@ -1,179 +1,874 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, TextInput, Modal, ActivityIndicator } from 'react-native';
-import { ModalStatusBanner, PollarModalFooter } from '../commons';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, TextInput, ActivityIndicator, ScrollView, Linking } from 'react-native';
+import type {
+  RampCountry,
+  RampDepositInstructions,
+  RampDirection,
+  RampQuote,
+  RampsOfframpBody,
+  RampsOnrampBody,
+  RampTxStatus,
+} from '@pollar/core';
+import { usePollar } from '../../context';
+import { PollarModalFooter } from '../commons';
+import { KycModal } from '../kyc-modal/KycModal';
+import { RouteDisplay } from './RouteDisplay';
+import { requiredRampKyc } from './ramp-kyc';
 
-export type RampStep = 'idle' | 'in-progress' | 'completed';
+export type RampStep = 'input' | 'loading_quote' | 'select_route' | 'contact' | 'status' | 'error';
+
+/** A field the selected quote asks the client to collect (empty for SEP-24). */
+export interface RampFieldSpec {
+  key: string;
+  label: string;
+  type: 'text' | 'email' | 'tel' | 'select';
+  bankType?: 'CLABE' | 'PIX' | 'PSE' | 'ACH' | 'BREB';
+  options?: { value: string; label: string; placeholder?: string }[];
+  /** Declared but not mandatory: blank must not block Continue. */
+  optional?: boolean;
+  placeholder?: string;
+  hint?: string;
+}
+
+const TERMINAL: RampTxStatus[] = ['completed', 'failed'];
+
+function requiredFieldsOf(quote: RampQuote): RampFieldSpec[] {
+  return (quote as { requiredFields?: RampFieldSpec[] }).requiredFields ?? [];
+}
+
+function brokenLimitOf(amount: number, quote: RampQuote): { limit: 'min' | 'max'; value: number } | null {
+  const { minAmount, maxAmount } = quote as { minAmount?: number; maxAmount?: number };
+  if (!Number.isFinite(amount)) return null;
+  if (minAmount != null && amount < minAmount) return { limit: 'min', value: minAmount };
+  if (maxAmount != null && amount > maxAmount) return { limit: 'max', value: maxAmount };
+  return null;
+}
+
+function limitMessage(limit: 'min' | 'max', value: number, currency: string): string {
+  return `The ${limit === 'min' ? 'minimum' : 'maximum'} amount for this route is ${value} ${currency}.`;
+}
+
+const RAMP_ERROR_MESSAGES: Record<string, string> = {
+  SDK_RAMPS_QUOTE_EXPIRED: 'This quote expired. Request a new one and try again.',
+  SDK_RAMPS_ASSET_NOT_ENABLED: 'This currency is not available for that route right now.',
+  SDK_RAMPS_KYC_REQUIRED: 'The provider needs to verify your identity before continuing.',
+  SDK_RAMPS_WALLET_UNSUPPORTED: 'This wallet type cannot be used for this ramp.',
+  SDK_RAMPS_PROVIDER_NOT_CONFIGURED: 'This ramp provider is not configured for this app yet.',
+  SDK_RAMPS_ANCHOR_ERROR: 'The provider rejected the request. Please try again in a moment.',
+  SDK_RAMPS_BRIDGE_ERROR: 'The provider rejected the request. Please try again in a moment.',
+};
+
+function rampErrorMessage(e: unknown, fallback: string): string {
+  const body = (e as { body?: Record<string, unknown> } | undefined)?.body;
+  const code = (e as { code?: unknown } | undefined)?.code;
+  if (typeof code !== 'string') return e instanceof Error ? e.message : fallback;
+  const limit = body?.limit;
+  const value = body?.limitAmount;
+  const currency = body?.limitCurrency;
+  if ((limit === 'min' || limit === 'max') && typeof value === 'number' && typeof currency === 'string') {
+    return limitMessage(limit, value, currency);
+  }
+  return RAMP_ERROR_MESSAGES[code] ?? (e instanceof Error ? e.message : fallback);
+}
+
+// Common shape of the on/off-ramp, complete and signature responses.
+interface RampResult {
+  txId: string;
+  provider: string;
+  status: RampTxStatus;
+  kycUrl?: string;
+  tosUrl?: string;
+  kycRequired?: boolean;
+  stellarTxHash?: string;
+  pendingSignature?: { unsignedXdr: string; action: 'sep10' | 'withdraw_payment' };
+  depositInstructions?: RampDepositInstructions;
+}
 
 export interface RampWidgetTemplateProps {
-    theme?: string;
-    accentColor?: string;
-    onClose: () => void;
+  theme?: string | undefined;
+  accentColor?: string | undefined;
+  step: RampStep;
+  direction: RampDirection;
+  amount: string;
+  currency: string;
+  country: string;
+  countries: RampCountry[];
+  countriesLoading: boolean;
+  quotes: RampQuote[];
+  requiredFields: RampFieldSpec[];
+  fieldValues: Record<string, string>;
+  isLoading: boolean;
+  provider: string;
+  txStatus: RampTxStatus | null;
+  kycUrl: string | null;
+  tosUrl: string | null;
+  kycBlocking: boolean;
+  stellarTxHash: string | null;
+  depositInstructions: RampDepositInstructions | null;
+  canComplete: boolean;
+  completing: boolean;
+  errorMsg: string | null;
+  /** Neutral guidance on the route list, e.g. after identity verification sent the user back to it. */
+  noticeMsg?: string | null | undefined;
+  onDirectionChange: (d: RampDirection) => void;
+  onAmountChange: (v: string) => void;
+  onCountryChange: (code: string) => void;
+  onFieldChange: (key: string, value: string) => void;
+  onFindRoute: () => void;
+  onSelectQuote: (quote: RampQuote) => void;
+  onContactContinue: () => void;
+  onOpenUrl: (url: string) => void;
+  onCompleteWithdraw: () => void;
+  onBack: () => void;
+  onRetry: () => void;
+  onClose: () => void;
 }
 
-export function RampWidgetTemplate({ theme = 'light', accentColor = '#005DB4', onClose }: RampWidgetTemplateProps) {
-    const isDark = theme === 'dark';
-    const [step, setStep] = useState<RampStep>('idle');
-    const [amount, setAmount] = useState('');
+export function RampWidgetTemplate({
+  theme = 'light',
+  accentColor = '#005DB4',
+  step,
+  direction,
+  amount,
+  currency,
+  country,
+  countries,
+  countriesLoading,
+  quotes,
+  requiredFields,
+  fieldValues,
+  isLoading,
+  provider,
+  txStatus,
+  kycUrl,
+  tosUrl,
+  kycBlocking,
+  stellarTxHash,
+  depositInstructions,
+  canComplete,
+  completing,
+  errorMsg,
+  noticeMsg,
+  onDirectionChange,
+  onAmountChange,
+  onCountryChange,
+  onFieldChange,
+  onFindRoute,
+  onSelectQuote,
+  onContactContinue,
+  onOpenUrl,
+  onCompleteWithdraw,
+  onBack,
+  onRetry,
+  onClose,
+}: RampWidgetTemplateProps) {
+  const isDark = theme === 'dark';
+  const colors = {
+    bg: isDark ? '#1a1a1a' : '#ffffff',
+    border: isDark ? '#374151' : '#e5e7eb',
+    text: isDark ? '#ffffff' : '#111827',
+    muted: isDark ? '#9ca3af' : '#6b7280',
+    inputBg: isDark ? '#374151' : '#f9fafb',
+    error: '#ef4444',
+  };
+  const missingField = requiredFields.some((f) => !f.optional && !(fieldValues[f.key] ?? '').trim());
+  const canFind = !!amount && Number(amount) > 0 && !!country && !isLoading;
 
-    const colors = {
-        bg: isDark ? '#1a1a1a' : '#ffffff',
-        border: isDark ? '#374151' : '#e5e7eb',
-        text: isDark ? '#ffffff' : '#111827',
-        muted: isDark ? '#9ca3af' : '#6b7280',
-        inputBg: isDark ? '#374151' : '#f9fafb',
-    };
+  const primary = (label: string, onPress: () => void, disabled = false) => (
+    <TouchableOpacity
+      style={[styles.primaryBtn, { backgroundColor: accentColor, opacity: disabled ? 0.5 : 1 }]}
+      disabled={disabled}
+      onPress={onPress}
+    >
+      <Text style={styles.primaryBtnText}>{label}</Text>
+    </TouchableOpacity>
+  );
+  const secondary = (label: string, onPress: () => void, disabled = false) => (
+    <TouchableOpacity
+      style={[styles.secondaryBtn, { borderColor: colors.border, opacity: disabled ? 0.5 : 1 }]}
+      disabled={disabled}
+      onPress={onPress}
+    >
+      <Text style={{ color: colors.text, fontWeight: '600' }}>{label}</Text>
+    </TouchableOpacity>
+  );
+  const errorLine = errorMsg ? <Text style={[styles.note, { color: colors.error }]}>{errorMsg}</Text> : null;
 
-    const handleDeposit = () => {
-        if (!amount) return;
-        setStep('in-progress');
-        setTimeout(() => {
-            setStep('completed');
-        }, 2500);
-    };
+  return (
+    <View style={[styles.card, { backgroundColor: colors.bg, borderColor: colors.border }]}>
+      <View style={styles.header}>
+        <Text style={[styles.title, { color: colors.text }]}>{direction === 'onramp' ? 'Add funds' : 'Cash out'}</Text>
+      </View>
 
-    return (
-        <View style={[styles.card, { backgroundColor: colors.bg, borderColor: colors.border }]}>
-            <View style={styles.header}>
-                <Text style={[styles.title, { color: colors.text }]}>Add Funds</Text>
+      <TouchableOpacity
+        style={[styles.iconButton, styles.closeBtn, { borderColor: colors.border }]}
+        onPress={onClose}
+        accessibilityLabel="Close"
+      >
+        <Text style={{ color: colors.muted, fontSize: 16 }}>✕</Text>
+      </TouchableOpacity>
+
+      <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
+        {step === 'input' && (
+          <>
+            <View style={styles.row}>
+              {(['onramp', 'offramp'] as RampDirection[]).map((d) => (
+                <TouchableOpacity
+                  key={d}
+                  style={[
+                    styles.chip,
+                    { borderColor: d === direction ? accentColor : colors.border },
+                    d === direction && { backgroundColor: accentColor },
+                  ]}
+                  onPress={() => onDirectionChange(d)}
+                >
+                  <Text style={{ color: d === direction ? '#fff' : colors.text, fontWeight: '600' }}>
+                    {d === 'onramp' ? 'Buy' : 'Sell'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
             </View>
+            <Text style={[styles.label, { color: colors.text }]}>Country</Text>
+            {countriesLoading ? (
+              <ActivityIndicator color={accentColor} style={{ marginBottom: 16 }} />
+            ) : countries.length === 0 ? (
+              <Text style={[styles.note, { color: colors.muted }]}>No ramp countries are available right now.</Text>
+            ) : (
+              <View style={[styles.row, { flexWrap: 'wrap' }]}>
+                {countries.map((c) => (
+                  <TouchableOpacity
+                    key={c.code}
+                    style={[styles.chip, { borderColor: c.code === country ? accentColor : colors.border }]}
+                    onPress={() => onCountryChange(c.code)}
+                  >
+                    <Text style={{ color: colors.text }}>
+                      {c.code}
+                      {c.currency ? ` · ${c.currency}` : ''}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+            <Text style={[styles.label, { color: colors.text }]}>Amount{currency ? ` (${currency})` : ''}</Text>
+            <TextInput
+              style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+              placeholder="25.00"
+              placeholderTextColor={colors.muted}
+              keyboardType="decimal-pad"
+              value={amount}
+              onChangeText={onAmountChange}
+            />
+            {errorLine}
+            {primary('Find routes', onFindRoute, !canFind)}
+          </>
+        )}
 
-            <TouchableOpacity style={[styles.iconButton, styles.closeBtn, { borderColor: colors.border }]} onPress={onClose}>
-                <Text style={{ color: colors.muted, fontSize: 16 }}>✕</Text>
-            </TouchableOpacity>
+        {step === 'loading_quote' && (
+          <View style={styles.statusBox}>
+            <ActivityIndicator size="large" color={accentColor} />
+            <Text style={{ color: colors.text, marginTop: 16 }}>Finding routes…</Text>
+          </View>
+        )}
 
-            <View style={styles.body}>
-                {step === 'idle' && (
-                    <>
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: colors.text }]}>Amount</Text>
-                            <TextInput
-                                style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
-                                placeholder="25.00"
-                                placeholderTextColor={colors.muted}
-                                keyboardType="numeric"
-                                value={amount}
-                                onChangeText={setAmount}
-                            />
-                        </View>
-                        <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: accentColor, opacity: amount ? 1 : 0.5 }]} disabled={!amount} onPress={handleDeposit}>
-                            <Text style={styles.primaryBtnText}>Deposit</Text>
-                        </TouchableOpacity>
-                    </>
+        {step === 'select_route' && (
+          <>
+            {!!noticeMsg && <Text style={[styles.note, { color: colors.text }]}>{noticeMsg}</Text>}
+            {quotes.map((q) => (
+              <RouteDisplay key={q.quoteId} quote={q} onSelect={(quote) => !isLoading && onSelectQuote(quote)} />
+            ))}
+            {isLoading && <ActivityIndicator color={accentColor} style={{ marginVertical: 8 }} />}
+            {errorLine}
+            {secondary('Back', onBack, isLoading)}
+          </>
+        )}
+
+        {step === 'contact' && (
+          <>
+            {requiredFields.map((f) => (
+              <View key={f.key} style={{ marginBottom: 12 }}>
+                <Text style={[styles.label, { color: colors.text }]}>
+                  {f.label}
+                  {f.optional ? ' (optional)' : ''}
+                </Text>
+                {f.type === 'select' && f.options ? (
+                  <View style={[styles.row, { flexWrap: 'wrap' }]}>
+                    {f.options.map((o) => (
+                      <TouchableOpacity
+                        key={o.value}
+                        style={[styles.chip, { borderColor: fieldValues[f.key] === o.value ? accentColor : colors.border }]}
+                        onPress={() => onFieldChange(f.key, o.value)}
+                      >
+                        <Text style={{ color: colors.text }}>{o.label}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : (
+                  <TextInput
+                    style={[styles.input, { backgroundColor: colors.inputBg, borderColor: colors.border, color: colors.text }]}
+                    placeholder={f.placeholder ?? ''}
+                    placeholderTextColor={colors.muted}
+                    keyboardType={f.type === 'email' ? 'email-address' : f.type === 'tel' ? 'phone-pad' : 'default'}
+                    autoCapitalize={f.type === 'email' ? 'none' : 'sentences'}
+                    value={fieldValues[f.key] ?? ''}
+                    onChangeText={(v) => onFieldChange(f.key, v)}
+                  />
                 )}
+                {!!f.hint && <Text style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>{f.hint}</Text>}
+              </View>
+            ))}
+            {errorLine}
+            {primary(isLoading ? 'Starting…' : 'Continue', onContactContinue, missingField || isLoading)}
+            {secondary('Back', onBack, isLoading)}
+          </>
+        )}
 
-                {step === 'in-progress' && (
-                    <View style={styles.statusBox}>
-                        <ActivityIndicator size="large" color={accentColor} />
-                        <Text style={{ color: colors.text, marginTop: 16, fontSize: 16 }}>Processing Payment...</Text>
-                    </View>
+        {step === 'status' && (
+          <>
+            <Text style={[styles.label, { color: colors.text }]}>{provider}</Text>
+            <Text style={[styles.note, { color: colors.muted }]}>Status: {txStatus ?? 'pending'}</Text>
+            {kycBlocking && (
+              <Text style={[styles.note, { color: colors.text }]}>
+                The provider needs to verify your identity. Finish it with the provider, then request a new quote.
+              </Text>
+            )}
+            {!!kycUrl && primary('Open provider verification', () => onOpenUrl(kycUrl))}
+            {!!tosUrl && secondary('Accept the terms of service', () => onOpenUrl(tosUrl))}
+            {depositInstructions && (
+              <View style={[styles.instructions, { borderColor: colors.border }]}>
+                {depositInstructions.scannable?.payload && (
+                  <View style={{ marginBottom: 8 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12 }}>
+                      {depositInstructions.scannable.payloadLabel ?? 'Payment code'}
+                    </Text>
+                    <Text selectable style={{ color: colors.text, fontFamily: 'Courier' }}>
+                      {depositInstructions.scannable.payload}
+                    </Text>
+                  </View>
                 )}
+                {depositInstructions.fields.map((f) => (
+                  <View key={f.key} style={{ marginBottom: 6 }}>
+                    <Text style={{ color: colors.muted, fontSize: 12 }}>{f.label}</Text>
+                    <Text selectable style={{ color: colors.text }}>
+                      {f.value}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            {!!stellarTxHash && (
+              <Text selectable style={[styles.note, { color: colors.muted }]}>
+                Stellar transaction: {stellarTxHash}
+              </Text>
+            )}
+            {canComplete &&
+              primary(completing ? 'Submitting…' : "I've completed KYC - withdraw", onCompleteWithdraw, completing)}
+            {errorLine}
+            {secondary(txStatus === 'completed' ? 'Done' : 'Close', onClose)}
+          </>
+        )}
 
-                {step === 'completed' && (
-                    <View style={styles.statusBox}>
-                        <Text style={{ fontSize: 40, marginBottom: 12 }}>🏁</Text>
-                        <Text style={[styles.title, { color: colors.text }]}>Funds Added</Text>
-                        <Text style={{ color: colors.muted, marginTop: 8 }}>Your transaction was successful.</Text>
-                        <TouchableOpacity style={[styles.primaryBtn, { backgroundColor: accentColor, marginTop: 24 }]} onPress={onClose}>
-                            <Text style={styles.primaryBtnText}>Continue</Text>
-                        </TouchableOpacity>
-                    </View>
-                )}
-            </View>
+        {step === 'error' && (
+          <>
+            <Text style={[styles.note, { color: colors.error }]}>{errorMsg ?? 'Unexpected error.'}</Text>
+            {primary('Try again', onRetry)}
+          </>
+        )}
+      </ScrollView>
 
-            <PollarModalFooter />
-        </View>
-    );
+      <PollarModalFooter />
+    </View>
+  );
 }
 
+/**
+ * The ramp flow on React Native, mirroring the web widget: amount, route, the
+ * provider's fields, then the transaction. When the route needs platform KYC the
+ * KYC modal opens on the option the backend names; approval brings back fresh
+ * quotes for the same input, and the user picks one again.
+ */
 export function RampWidget({ onClose }: { onClose: () => void }) {
+  const { getClient, walletAddress, styles: pollarStyles } = usePollar();
+  const { theme = 'light', accentColor = '#005DB4' } = pollarStyles;
+  const client = getClient();
+
+  const [step, setStep] = useState<RampStep>('input');
+  const [direction, setDirection] = useState<RampDirection>('onramp');
+  const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState('');
+  const [country, setCountry] = useState('');
+  const [fieldValues, setFieldValues] = useState<Record<string, string>>({});
+  const [countries, setCountries] = useState<RampCountry[]>([]);
+  const [countriesLoading, setCountriesLoading] = useState(true);
+  const [quotes, setQuotes] = useState<RampQuote[]>([]);
+  const [selectedQuote, setSelectedQuote] = useState<RampQuote | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [pendingKyc, setPendingKyc] = useState<{
+    rampProviderId: string;
+    kycProviderId: string;
+    corridorId: string;
+  } | null>(null);
+  const kycAttempt = useRef<typeof pendingKyc>(null);
+  const [noticeMsg, setNoticeMsg] = useState<string | null>(null);
+
+  const [txId, setTxId] = useState<string | null>(null);
+  const [provider, setProvider] = useState('');
+  const [kycUrl, setKycUrl] = useState<string | null>(null);
+  const [tosUrl, setTosUrl] = useState<string | null>(null);
+  const [kycPending, setKycPending] = useState(false);
+  const [kycApproved, setKycApproved] = useState(false);
+  const [txStatus, setTxStatus] = useState<RampTxStatus | null>(null);
+  const [stellarTxHash, setStellarTxHash] = useState<string | null>(null);
+  const [depositInstructions, setDepositInstructions] = useState<RampDepositInstructions | null>(null);
+  const [completing, setCompleting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  const mounted = useRef(true);
+  useEffect(
+    () => () => {
+      mounted.current = false;
+      kycAttempt.current = null;
+    },
+    [],
+  );
+
+  useEffect(() => {
+    let active = true;
+    client
+      .getRampCountries()
+      .then(({ countries: list }) => {
+        if (!active) return;
+        setCountries(list);
+        const first = list[0];
+        if (first) {
+          setCountry(first.code);
+          if (first.currency) setCurrency(first.currency);
+        }
+      })
+      .catch(() => active && setCountries([]))
+      .finally(() => active && setCountriesLoading(false));
+    return () => {
+      active = false;
+    };
+  }, [client]);
+
+  // Poll the provider transaction while on the status step until terminal.
+  useEffect(() => {
+    if (step !== 'status' || !txId) return;
+    if (txStatus && TERMINAL.includes(txStatus)) return;
+    let active = true;
+    const id = setInterval(async () => {
+      try {
+        const tx = await client.getRampTransaction(txId);
+        if (!active) return;
+        setTxStatus(tx.status);
+        if (tx.stellarTxHash) setStellarTxHash(tx.stellarTxHash);
+        if (tx.kycUrl) setKycUrl(tx.kycUrl);
+        if (tx.depositInstructions) setDepositInstructions(tx.depositInstructions);
+      } catch {
+        /* transient - keep polling */
+      }
+    }, 5000);
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, [step, txId, txStatus, client]);
+
+  // A link-less provider KYC gate (Abroad): poll until the user clears it elsewhere.
+  useEffect(() => {
+    if (step !== 'status' || !kycPending || kycApproved) return;
+    let active = true;
+    const check = async () => {
+      try {
+        const { hasApproved } = await client.getRampKycStatus();
+        if (active && hasApproved) setKycApproved(true);
+      } catch {
+        /* transient - keep polling */
+      }
+    };
+    void check();
+    const id = setInterval(check, 10000);
+    return () => {
+      active = false;
+      clearInterval(id);
+    };
+  }, [step, kycPending, kycApproved, client]);
+
+  function handleCountryChange(code: string) {
+    setCountry(code);
+    const match = countries.find((c) => c.code === code);
+    if (match?.currency) setCurrency(match.currency);
+  }
+
+  function resetToInput({ keepMessage = false }: { keepMessage?: boolean } = {}) {
+    setStep('input');
+    setQuotes([]);
+    setSelectedQuote(null);
+    setFieldValues({});
+    setTxId(null);
+    setProvider('');
+    setKycUrl(null);
+    setTosUrl(null);
+    setTxStatus(null);
+    setStellarTxHash(null);
+    setDepositInstructions(null);
+    setKycPending(false);
+    setKycApproved(false);
+    setNoticeMsg(null);
+    if (!keepMessage) setErrorMsg(null);
+  }
+
+  async function fetchQuotes(): Promise<RampQuote[] | null> {
+    try {
+      const result = await client.getRampsQuote({ country, amount: Number(amount), currency, direction });
+      const list = result.quotes ?? [];
+      if (list.length === 0) {
+        setErrorMsg(`No ramp providers available for ${country} yet.`);
+        setStep('error');
+        return null;
+      }
+      return list;
+    } catch (e) {
+      setErrorMsg(rampErrorMessage(e, 'Failed to fetch quotes.'));
+      setStep('error');
+      return null;
+    }
+  }
+
+  async function handleFindRoute() {
+    setStep('loading_quote');
+    setIsLoading(true);
+    setErrorMsg(null);
+    setNoticeMsg(null);
+    const list = await fetchQuotes();
+    if (!mounted.current) return;
+    setIsLoading(false);
+    if (!list) return;
+    setQuotes(list);
+    setStep('select_route');
+  }
+
+  /**
+   * Back to the route list with fresh prices for the same input. A verification
+   * takes minutes and quotes live about as long, so the one that hit the gate is
+   * usually expired by now; the user picks again rather than an order starting on
+   * a price they did not see.
+   */
+  async function requoteAfterKyc() {
+    setStep('loading_quote');
+    setIsLoading(true);
+    setErrorMsg(null);
+    setSelectedQuote(null);
+    const list = await fetchQuotes();
+    if (!mounted.current) return;
+    setIsLoading(false);
+    if (!list) return;
+    setQuotes(list);
+    setNoticeMsg('Your identity is verified. Prices may have changed, so choose a route to continue.');
+    setStep('select_route');
+  }
+
+  async function resumeWithSignature(id: string, ps: NonNullable<RampResult['pendingSignature']>) {
+    const outcome = await client.signTx(ps.unsignedXdr);
+    if (outcome.status !== 'signed') {
+      setErrorMsg(outcome.message ?? outcome.details ?? 'Signing was cancelled.');
+      setStep('error');
+      return;
+    }
+    const result = (await client.submitRampSignature(id, {
+      signedXdr: outcome.signedXdr,
+      action: ps.action,
+    })) as RampResult;
+    await applyResult(result);
+  }
+
+  async function applyResult(result: RampResult) {
+    setTxId(result.txId);
+    setProvider(result.provider);
+    if (result.pendingSignature) {
+      await resumeWithSignature(result.txId, result.pendingSignature);
+      return;
+    }
+    setKycUrl(result.kycUrl ?? null);
+    setTosUrl(result.tosUrl ?? null);
+    setKycPending(result.kycRequired === true);
+    if (result.kycRequired) setKycApproved(false);
+    setTxStatus(result.status);
+    setStellarTxHash(result.stellarTxHash ?? null);
+    setDepositInstructions(result.depositInstructions ?? null);
+    setStep('status');
+  }
+
+  function handleSelectQuote(quote: RampQuote) {
+    setSelectedQuote(quote);
+    setErrorMsg(null);
+    setNoticeMsg(null);
+    const broken = brokenLimitOf(Number(amount), quote);
+    if (broken) {
+      setErrorMsg(limitMessage(broken.limit, broken.value, currency));
+      return;
+    }
+    const fields = requiredFieldsOf(quote);
+    const missing = fields.some((f) => !f.optional && !(fieldValues[f.key] ?? '').trim());
+    if (fields.length > 0 && missing) {
+      setStep('contact');
+      return;
+    }
+    void startRamp(quote);
+  }
+
+  async function startRamp(quote: RampQuote) {
+    setIsLoading(true);
+    setErrorMsg(null);
+    try {
+      const base: Record<string, unknown> = { quoteId: quote.quoteId, amount: Number(amount), currency, country };
+      if (walletAddress) base.walletAddress = walletAddress;
+      // Same mapping as the web widget: a `bankType` field becomes `bankDetails`,
+      // the standard body fields map by name, anything else goes into `fields`.
+      const STANDARD_BODY_KEYS = new Set(['email', 'fullName', 'taxId', 'qrCode']);
+      const extraFields: Record<string, string> = {};
+      for (const f of requiredFieldsOf(quote)) {
+        const val = (fieldValues[f.key] ?? '').trim();
+        if (!val) continue;
+        if (f.bankType) base.bankDetails = { type: f.bankType, value: val };
+        else if (STANDARD_BODY_KEYS.has(f.key)) base[f.key] = val;
+        else extraFields[f.key] = val;
+      }
+      if (Object.keys(extraFields).length > 0) base.fields = extraFields;
+      const result = (
+        direction === 'onramp'
+          ? await client.createOnRamp(base as RampsOnrampBody)
+          : await client.createOffRamp(base as RampsOfframpBody)
+      ) as RampResult;
+      if (!mounted.current) return;
+      await applyResult(result);
+    } catch (e) {
+      if (!mounted.current) return;
+      const requirement = requiredRampKyc(e);
+      if (requirement) {
+        setStep(requiredFieldsOf(quote).length ? 'contact' : 'select_route');
+        setErrorMsg('Identity verification is required before continuing.');
+        kycAttempt.current = requirement;
+        setPendingKyc(requirement);
+        return;
+      }
+      setErrorMsg(rampErrorMessage(e, 'Failed to start the ramp.'));
+      setStep('error');
+    } finally {
+      if (mounted.current) setIsLoading(false);
+    }
+  }
+
+  async function handleCompleteWithdraw() {
+    if (!txId) return;
+    setCompleting(true);
+    setErrorMsg(null);
+    try {
+      const result = (await client.completeWithdraw(txId)) as RampResult;
+      if (result.pendingSignature) {
+        await resumeWithSignature(txId, result.pendingSignature);
+        return;
+      }
+      setTxStatus(result.status);
+      setStellarTxHash(result.stellarTxHash ?? null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : '';
+      setErrorMsg(
+        msg.includes('KYC') ? 'Finish KYC at the provider first, then try again.' : msg || 'Failed to complete the withdrawal.',
+      );
+    } finally {
+      setCompleting(false);
+    }
+  }
+
+  function handleOpenUrl(url: string) {
+    Linking.openURL(url).catch(() => setErrorMsg('Could not open the page. Please try again.'));
+  }
+
+  const kycBlocking = kycPending && !kycApproved;
+  const canComplete = direction === 'offramp' && step === 'status' && txStatus !== 'completed' && !stellarTxHash && !kycPending;
+
+  // Keep this widget's state while KYC is open so cancelling preserves the form.
+  if (pendingKyc) {
     return (
-        <View style={styles.overlay}>
-            <View style={styles.modalWrapper}>
-                <RampWidgetTemplate onClose={onClose} />
-            </View>
-        </View>
+      <KycModal
+        country={country}
+        corridorId={pendingKyc.corridorId}
+        providerId={pendingKyc.kycProviderId}
+        onClose={() => {
+          kycAttempt.current = null;
+          setPendingKyc(null);
+        }}
+        onApproved={() => {
+          // Ignore duplicate approvals or polling that finishes after cancellation.
+          if (kycAttempt.current !== pendingKyc) return;
+          kycAttempt.current = null;
+          setPendingKyc(null);
+          void requoteAfterKyc();
+        }}
+      />
     );
+  }
+
+  return (
+    <View style={styles.overlay}>
+      <View style={styles.modalWrapper}>
+        <RampWidgetTemplate
+          theme={theme}
+          accentColor={accentColor}
+          step={step}
+          direction={direction}
+          amount={amount}
+          currency={currency}
+          country={country}
+          countries={countries}
+          countriesLoading={countriesLoading}
+          quotes={quotes}
+          requiredFields={selectedQuote ? requiredFieldsOf(selectedQuote) : []}
+          fieldValues={fieldValues}
+          isLoading={isLoading}
+          provider={provider}
+          txStatus={txStatus}
+          kycUrl={kycUrl}
+          tosUrl={tosUrl}
+          kycBlocking={kycBlocking}
+          stellarTxHash={stellarTxHash}
+          depositInstructions={depositInstructions}
+          canComplete={canComplete}
+          completing={completing}
+          errorMsg={errorMsg}
+          noticeMsg={noticeMsg}
+          onDirectionChange={setDirection}
+          onAmountChange={(next) => {
+            setAmount(next);
+            setErrorMsg(null);
+          }}
+          onCountryChange={handleCountryChange}
+          onFieldChange={(key, value) => setFieldValues((v) => ({ ...v, [key]: value }))}
+          onFindRoute={handleFindRoute}
+          onSelectQuote={handleSelectQuote}
+          onContactContinue={() => selectedQuote && void startRamp(selectedQuote)}
+          onOpenUrl={handleOpenUrl}
+          onCompleteWithdraw={handleCompleteWithdraw}
+          onBack={() => resetToInput({ keepMessage: true })}
+          onRetry={() => resetToInput()}
+          onClose={onClose}
+        />
+      </View>
+    </View>
+  );
 }
 
 const styles = StyleSheet.create({
-    overlay: {
-        ...StyleSheet.absoluteFillObject,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-        zIndex: 50,
-    },
-    modalWrapper: {
-        width: '100%',
-        maxWidth: 400,
-    },
-    card: {
-        width: '100%',
-        borderRadius: 16,
-        borderWidth: 1,
-        padding: 24,
-        shadowColor: '#000',
-        shadowOpacity: 0.25,
-        shadowRadius: 25,
-        shadowOffset: { width: 0, height: 10 },
-        elevation: 10,
-    },
-    header: {
-        marginBottom: 16,
-        marginTop: 10,
-    },
-    title: {
-        fontSize: 22,
-        fontWeight: '700',
-    },
-    iconButton: {
-        position: 'absolute',
-        width: 32,
-        height: 32,
-        borderRadius: 6,
-        borderWidth: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 10,
-    },
-    closeBtn: {
-        top: 16,
-        right: 16,
-    },
-    body: {
-        marginVertical: 12,
-    },
-    inputGroup: {
-        marginBottom: 20,
-    },
-    label: {
-        fontSize: 14,
-        fontWeight: '600',
-        marginBottom: 8,
-    },
-    input: {
-        height: 48,
-        borderRadius: 8,
-        borderWidth: 1,
-        paddingHorizontal: 16,
-        fontSize: 18,
-    },
-    primaryBtn: {
-        width: '100%',
-        height: 48,
-        borderRadius: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    primaryBtnText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '700',
-    },
-    statusBox: {
-        paddingVertical: 30,
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    zIndex: 50,
+  },
+  modalWrapper: {
+    width: '100%',
+    maxWidth: 400,
+  },
+  card: {
+    width: '100%',
+    maxHeight: '90%',
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 25,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 10,
+  },
+  header: {
+    marginBottom: 16,
+    marginTop: 10,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  iconButton: {
+    position: 'absolute',
+    width: 32,
+    height: 32,
+    borderRadius: 6,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  closeBtn: {
+    top: 16,
+    right: 16,
+  },
+  body: {
+    marginVertical: 12,
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16,
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: 9999,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  note: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginVertical: 8,
+  },
+  input: {
+    height: 48,
+    borderRadius: 8,
+    borderWidth: 1,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    marginBottom: 8,
+  },
+  instructions: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 12,
+    marginVertical: 8,
+  },
+  primaryBtn: {
+    width: '100%',
+    height: 48,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  primaryBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  secondaryBtn: {
+    width: '100%',
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  statusBox: {
+    paddingVertical: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
