@@ -278,6 +278,12 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', corridorId,
         finish('approved');
         return;
       }
+      // A session of this user is in the provider's review (or approved and still being
+      // recorded): show that instead of opening another one.
+      if (code === 'SDK_KYC_UNDER_REVIEW') {
+        finish('pending');
+        return;
+      }
       if (code === 'SDK_KYC_SESSION_EXPIRED') delete idempotencyKeys.current[provider.id];
       setError(kycErrorMessage(e, 'start'));
       setStep('select_provider');
