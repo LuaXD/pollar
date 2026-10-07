@@ -5,7 +5,7 @@ import type {
   RampDepositInstructions,
   RampDirection,
   RampQuote,
-  RampQuoteKycRequirement,
+  RampQuoteRequirement,
   RampsOfframpBody,
   RampsOnrampBody,
   RampTxStatus,
@@ -97,7 +97,7 @@ export interface RampWidgetTemplateProps {
   countriesLoading: boolean;
   quotes: RampQuote[];
   /** Routes not quoted until the user passes the KYC their corridor requires. */
-  kycRequired: RampQuoteKycRequirement[];
+  kycRequired: RampQuoteRequirement[];
   requiredFields: RampFieldSpec[];
   fieldValues: Record<string, string>;
   isLoading: boolean;
@@ -119,7 +119,7 @@ export interface RampWidgetTemplateProps {
   onFieldChange: (key: string, value: string) => void;
   onFindRoute: () => void;
   onSelectQuote: (quote: RampQuote) => void;
-  onVerifyRoute: (requirement: RampQuoteKycRequirement) => void;
+  onVerifyRoute: (requirement: RampQuoteRequirement) => void;
   onContactContinue: () => void;
   onOpenUrl: (url: string) => void;
   onCompleteWithdraw: () => void;
@@ -136,11 +136,11 @@ function LockedRoute({
   disabled,
   onVerify,
 }: {
-  requirement: RampQuoteKycRequirement;
+  requirement: RampQuoteRequirement;
   colors: { border: string; text: string; muted: string; inputBg: string };
   accentColor: string;
   disabled: boolean;
-  onVerify: (requirement: RampQuoteKycRequirement) => void;
+  onVerify: (requirement: RampQuoteRequirement) => void;
 }) {
   const { message, action } = lockedRouteCopy(requirement);
   return (
@@ -450,7 +450,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
   const [countries, setCountries] = useState<RampCountry[]>([]);
   const [countriesLoading, setCountriesLoading] = useState(true);
   const [quotes, setQuotes] = useState<RampQuote[]>([]);
-  const [kycRequired, setKycRequired] = useState<RampQuoteKycRequirement[]>([]);
+  const [kycRequired, setKycRequired] = useState<RampQuoteRequirement[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<RampQuote | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [pendingKyc, setPendingKyc] = useState<{
@@ -574,11 +574,11 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
    * Quote the current input. A route held back by KYC still counts as an answer:
    * it is shown locked, so "no providers" only means nothing came back at all.
    */
-  async function fetchQuotes(): Promise<{ list: RampQuote[]; locked: RampQuoteKycRequirement[] } | null> {
+  async function fetchQuotes(): Promise<{ list: RampQuote[]; locked: RampQuoteRequirement[] } | null> {
     try {
       const result = await client.getRampsQuote({ country, amount: Number(amount), currency, direction });
       const list = result.quotes ?? [];
-      const locked = result.kycRequired ?? [];
+      const locked = result.requirementsRequired ?? [];
       if (list.length === 0 && locked.length === 0) {
         setErrorMsg(`No ramp providers available for ${country} yet.`);
         setStep('error');
@@ -741,8 +741,8 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
   }
 
   /** Open KYC on the option and corridor a locked route names; approval re-quotes like the start gate does. */
-  function handleVerifyRoute(requirement: RampQuoteKycRequirement) {
-    const { rampProviderId, kycProviderId, corridorId } = requirement;
+  function handleVerifyRoute(requirement: RampQuoteRequirement) {
+    const { rampProviderId, optionId: kycProviderId, corridorId } = requirement;
     const attempt = { rampProviderId, kycProviderId, corridorId };
     setErrorMsg(null);
     setNoticeMsg(null);

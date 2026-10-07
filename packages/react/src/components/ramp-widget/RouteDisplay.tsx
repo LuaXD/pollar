@@ -1,6 +1,6 @@
 'use client';
 
-import type { RampQuote, RampQuoteKycRequirement } from '@pollar/core';
+import type { RampQuote, RampQuoteRequirement } from '@pollar/core';
 import { lockedRouteCopy } from './ramp-kyc';
 
 interface RouteDisplayProps {
@@ -61,10 +61,10 @@ export function RouteDisplay({ quote, busy = false, disabled = false, onSelect }
 }
 
 interface LockedRouteDisplayProps {
-  requirement: RampQuoteKycRequirement;
+  requirement: RampQuoteRequirement;
   /** A route is starting, so verification cannot be opened meanwhile. */
   disabled?: boolean;
-  onVerify: (requirement: RampQuoteKycRequirement) => void;
+  onVerify: (requirement: RampQuoteRequirement) => void;
 }
 
 /** A route the backend did not quote because its corridor needs a KYC the user has not passed. */

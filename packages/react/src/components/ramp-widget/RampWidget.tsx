@@ -5,7 +5,7 @@ import type {
   RampDepositInstructions,
   RampDirection,
   RampQuote,
-  RampQuoteKycRequirement,
+  RampQuoteRequirement,
   RampsOfframpBody,
   RampsOnrampBody,
   RampTxStatus,
@@ -145,7 +145,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
   const [countriesLoading, setCountriesLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [quotes, setQuotes] = useState<RampQuote[]>([]);
-  const [kycRequired, setKycRequired] = useState<RampQuoteKycRequirement[]>([]);
+  const [kycRequired, setKycRequired] = useState<RampQuoteRequirement[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<RampQuote | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [pendingKyc, setPendingKyc] = useState<{
@@ -272,7 +272,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
       if (step === 'select_route') {
         const result = await client.getRampsQuote({ country, amount: Number(amount), currency, direction });
         setQuotes(result.quotes ?? []);
-        setKycRequired(result.kycRequired ?? []);
+        setKycRequired(result.requirementsRequired ?? []);
       } else if (step === 'status' && txId) {
         const tx = await client.getRampTransaction(txId);
         setTxStatus(tx.status);
@@ -356,7 +356,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
   async function loadQuotes(): Promise<boolean> {
     const result = await client.getRampsQuote({ country, amount: Number(amount), currency, direction });
     const list = result.quotes ?? [];
-    const locked = result.kycRequired ?? [];
+    const locked = result.requirementsRequired ?? [];
     if (list.length === 0 && locked.length === 0) {
       setErrorMsg(`No ramp providers available for ${country} yet.`);
       setStep('error');
@@ -477,8 +477,8 @@ export function RampWidget({ onClose }: RampWidgetProps) {
   }
 
   /** Open KYC on the option and corridor a locked route names; approval re-quotes like the start gate does. */
-  function handleVerifyRoute(requirement: RampQuoteKycRequirement) {
-    const { rampProviderId, kycProviderId, corridorId } = requirement;
+  function handleVerifyRoute(requirement: RampQuoteRequirement) {
+    const { rampProviderId, optionId: kycProviderId, corridorId } = requirement;
     const attempt = { rampProviderId, kycProviderId, corridorId };
     setErrorMsg(null);
     setNoticeMsg(null);

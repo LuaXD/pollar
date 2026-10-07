@@ -1,4 +1,4 @@
-import type { RampQuoteKycRequirement } from '@pollar/core';
+import type { RampQuoteRequirement } from '@pollar/core';
 import { kycReviewMessage } from '../kyc-modal/kyc-messages';
 
 /** Open platform KYC only for the backend's explicit, scoped pre-transaction gate. */
@@ -28,7 +28,7 @@ export function requiredRampKyc(error: unknown) {
  * held for review (`reviewReason`) or rejected has nothing the user can do from
  * here, so those rows carry no button.
  */
-export function lockedRouteCopy(requirement: Pick<RampQuoteKycRequirement, 'status' | 'reviewReason'>): {
+export function lockedRouteCopy(requirement: Pick<RampQuoteRequirement, 'status' | 'reviewReason'>): {
   message: string;
   action: string | null;
 } {

@@ -6933,12 +6933,17 @@ export interface operations {
                                 provider: string;
                                 code: string;
                             }[];
-                            /** @description Routes not quoted because their corridor requires a KYC the user has not passed. Complete `kycProviderId` with this `corridorId` (the /kyc routes), then quote again. `status`: none (never started), pending (in progress or held for review, see `reviewReason`), rejected, expired. Returned on /v2 only. */
-                            kycRequired?: {
+                            /** @description Routes not quoted because their corridor has a requirement step the user has not completed. Every step is required, in order; this is the first pending one (`position`, with `completed` of `total` done). For a `KYC` step, complete `optionId` with this `corridorId` (the /kyc routes), then quote again. `status`: none (never started), pending (in progress or held for review, see `reviewReason`), rejected, expired. Returned on /v2 only. */
+                            requirementsRequired?: {
                                 provider: string;
                                 rampProviderId: string;
                                 corridorId: string;
-                                kycProviderId: string;
+                                position: number;
+                                completed: number;
+                                total: number;
+                                /** @enum {string} */
+                                type: "KYC";
+                                optionId: string;
                                 /** @enum {string} */
                                 status: "none" | "pending" | "rejected" | "expired";
                                 reviewReason?: string;

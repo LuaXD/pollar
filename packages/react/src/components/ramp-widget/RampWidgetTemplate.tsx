@@ -6,7 +6,7 @@ import type {
   RampDirection,
   RampInstructionField,
   RampQuote,
-  RampQuoteKycRequirement,
+  RampQuoteRequirement,
   RampScannable,
   RampTxStatus,
 } from '@pollar/core';
@@ -109,7 +109,7 @@ interface RampWidgetTemplateProps {
   refreshing: boolean;
   quotes: RampQuote[];
   /** Routes not quoted until the user passes the KYC their corridor requires. */
-  kycRequired: RampQuoteKycRequirement[];
+  kycRequired: RampQuoteRequirement[];
   isLoading: boolean;
   // status step
   provider: string;
@@ -135,7 +135,7 @@ interface RampWidgetTemplateProps {
   onCountryChange: (v: string) => void;
   onFindRoute: () => void;
   onSelectQuote: (q: RampQuote) => void;
-  onVerifyRoute: (requirement: RampQuoteKycRequirement) => void;
+  onVerifyRoute: (requirement: RampQuoteRequirement) => void;
   onContactContinue: () => void;
   onOpenKyc: () => void;
   onOpenTos: () => void;
