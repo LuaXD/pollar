@@ -51,7 +51,7 @@ export { StellarClient } from './stellar/StellarClient';
 export type { StellarNetwork, StellarClientConfig, StellarBalance } from './stellar/StellarClient';
 
 // --- KYC endpoints ------------------------------------------------------------
-export { getKycStatus, getKycProviders, startKyc, resolveKyc, pollKycStatus } from './api/endpoints/kyc';
+export { getKycStatus, getKycProviders, startKyc, resolveKyc, pollKycStatus, pollKycDecision } from './api/endpoints/kyc';
 
 // --- Ramps endpoints ----------------------------------------------------------
 export {

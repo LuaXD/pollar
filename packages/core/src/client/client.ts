@@ -2,7 +2,7 @@ import { createApiClient, fetchWithTimeout, PollarApiClient } from '../api/clien
 import { claimDistributionRule, listDistributionRules } from '../api/endpoints/distribution';
 import { getSwapConfig, getSwapTokens, quoteSwap } from '../api/endpoints/swap';
 import { buildEarnTx, getEarnOpportunities, getEarnPosition, getEarnProviders } from '../api/endpoints/earn';
-import { getKycProviders, getKycStatus, pollKycStatus, resolveKyc, startKyc } from '../api/endpoints/kyc';
+import { getKycProviders, getKycStatus, pollKycDecision, pollKycStatus, resolveKyc, startKyc } from '../api/endpoints/kyc';
 import {
   completeWithdraw,
   createOffRamp,
@@ -51,6 +51,7 @@ import {
   KycStartBody,
   KycStartResponse,
   KycStatus,
+  KycStatusContent,
   NetworkState,
   PasskeyCeremony,
   PasskeySigner,
@@ -3298,8 +3299,15 @@ export class PollarClient {
     return startKyc(this._api, body);
   }
 
-  resolveKyc(providerId: string, level?: KycLevel, country?: string, corridorId?: string) {
-    return resolveKyc(this._api, providerId, level, country, corridorId);
+  resolveKyc(providerId: string, level?: KycLevel, country?: string, corridorId?: string, idempotencyKey?: string) {
+    return resolveKyc(this._api, providerId, level, country, corridorId, idempotencyKey);
+  }
+
+  pollKycDecision(
+    providerId: string,
+    opts?: { intervalMs?: number; timeoutMs?: number; corridorId?: string },
+  ): Promise<KycStatusContent> {
+    return pollKycDecision(this._api, providerId, opts);
   }
 
   pollKycStatus(

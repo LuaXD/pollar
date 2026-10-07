@@ -6604,11 +6604,15 @@ export interface operations {
                         success: true;
                         content: {
                             /** @enum {string} */
-                            status: "none" | "pending" | "approved" | "rejected";
+                            status: "none" | "pending" | "approved" | "rejected" | "expired";
                             /** @enum {string} */
                             level?: "basic" | "intermediate" | "enhanced";
-                            providerId: string;
+                            providerId?: string;
+                            /** @enum {string} */
+                            decisionStatus?: "pending" | "manual_review" | "approved" | "rejected" | "expired";
                             expiresAt?: string;
+                            /** @description Why an approval is held for manual review, e.g. DUPLICATE_DOCUMENT. */
+                            reviewReason?: string;
                         };
                     };
                 };
@@ -6741,6 +6745,8 @@ export interface operations {
                     providerId: string;
                     /** ISO 3166-1 alpha-2 country code. */
                     country?: string;
+                    /** @description Reuse on retries so the same vendor session comes back instead of a new one. */
+                    idempotencyKey?: string;
                     /** @enum {string} */
                     level?: "basic" | "intermediate" | "enhanced";
                 };

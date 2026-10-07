@@ -936,8 +936,13 @@ export type TxHistoryState =
 // --- KYC types ----------------------------------------------------------------
 
 export type KycLevel = 'basic' | 'intermediate' | 'enhanced';
-export type KycStatus = 'none' | 'pending' | 'approved' | 'rejected';
+export type KycStatus = 'none' | 'pending' | 'approved' | 'rejected' | 'expired';
+export type KycDecisionStatus = 'pending' | 'manual_review' | 'approved' | 'rejected' | 'expired';
 export type KycFlow = 'iframe' | 'form' | 'redirect';
+
+/** One read of GET /kyc/status. `status` is what gates the user; `decisionStatus`
+ *  and `reviewReason` say why a `pending` is pending (e.g. held for manual review). */
+export type KycStatusContent = pollarPaths['/kyc/status']['get']['responses'][200]['content']['application/json']['content'];
 
 export type KycProvider =
   pollarPaths['/kyc/providers']['get']['responses'][200]['content']['application/json']['content']['providers'][number];

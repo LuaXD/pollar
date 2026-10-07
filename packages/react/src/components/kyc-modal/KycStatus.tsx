@@ -13,6 +13,7 @@ const STATUS_CONFIG: Record<KycStatusValue, { label: string; color: string; dot:
   pending: { label: 'Pending review', color: '#f59e0b', dot: true },
   approved: { label: 'Verified', color: '#10b981', dot: false },
   rejected: { label: 'Rejected', color: '#ef4444', dot: false },
+  expired: { label: 'Expired', color: '#6b7280', dot: false },
 };
 
 export function KycStatus({ status, className }: KycStatusProps) {
