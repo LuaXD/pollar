@@ -52,6 +52,7 @@ export type { StellarNetwork, StellarClientConfig, StellarBalance } from './stel
 
 // --- KYC endpoints ------------------------------------------------------------
 export { getKycStatus, getKycProviders, startKyc, resolveKyc, pollKycStatus, pollKycDecision } from './api/endpoints/kyc';
+export { getRequirementForm, submitRequirementForm } from './api/endpoints/requirements';
 
 // --- Ramps endpoints ----------------------------------------------------------
 export {

@@ -14,7 +14,8 @@ import { usePollar } from '../../context';
 import { PollarModalFooter } from '../commons';
 import { KycModal } from '../kyc-modal/KycModal';
 import { RouteDisplay } from './RouteDisplay';
-import { lockedRouteCopy, requiredRampKyc } from './ramp-kyc';
+import { RequirementFormModal } from '../requirement-form-modal/RequirementFormModal';
+import { lockedRouteCopy, pendingFromQuote, requiredRampKyc, type PendingRequirement } from './ramp-kyc';
 
 export type RampStep = 'input' | 'loading_quote' | 'select_route' | 'contact' | 'status' | 'error';
 
@@ -453,11 +454,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
   const [kycRequired, setKycRequired] = useState<RampQuoteRequirement[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<RampQuote | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [pendingKyc, setPendingKyc] = useState<{
-    rampProviderId: string;
-    kycProviderId: string;
-    corridorId: string;
-  } | null>(null);
+  const [pendingKyc, setPendingKyc] = useState<PendingRequirement | null>(null);
   const kycAttempt = useRef<typeof pendingKyc>(null);
   const [noticeMsg, setNoticeMsg] = useState<string | null>(null);
 
@@ -612,7 +609,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
    * usually expired by now; the user picks again rather than an order starting on
    * a price they did not see.
    */
-  async function requoteAfterKyc() {
+  async function requoteAfterKyc(completed: PendingRequirement['type'] = 'KYC') {
     setStep('loading_quote');
     setIsLoading(true);
     setErrorMsg(null);
@@ -623,7 +620,11 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
     if (!quoted) return;
     setQuotes(quoted.list);
     setKycRequired(quoted.locked);
-    setNoticeMsg('Your identity is verified. Prices may have changed, so choose a route to continue.');
+    setNoticeMsg(
+      completed === 'FORM'
+        ? 'Thanks, your details are saved. Prices may have changed, so choose a route to continue.'
+        : 'Your identity is verified. Prices may have changed, so choose a route to continue.',
+    );
     setStep('select_route');
   }
 
@@ -706,7 +707,11 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
       const requirement = requiredRampKyc(e);
       if (requirement) {
         setStep(requiredFieldsOf(quote).length ? 'contact' : 'select_route');
-        setErrorMsg('Identity verification is required before continuing.');
+        setErrorMsg(
+          requirement.type === 'FORM'
+            ? 'A few more details are required before continuing.'
+            : 'Identity verification is required before continuing.',
+        );
         kycAttempt.current = requirement;
         setPendingKyc(requirement);
         return;
@@ -740,10 +745,9 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
     }
   }
 
-  /** Open KYC on the option and corridor a locked route names; approval re-quotes like the start gate does. */
+  /** Open the step a locked route names (KYC or a form); completing it re-quotes like the start gate does. */
   function handleVerifyRoute(requirement: RampQuoteRequirement) {
-    const { rampProviderId, optionId: kycProviderId, corridorId } = requirement;
-    const attempt = { rampProviderId, kycProviderId, corridorId };
+    const attempt = pendingFromQuote(requirement);
     setErrorMsg(null);
     setNoticeMsg(null);
     kycAttempt.current = attempt;
@@ -757,13 +761,32 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
   const kycBlocking = kycPending && !kycApproved;
   const canComplete = direction === 'offramp' && step === 'status' && txStatus !== 'completed' && !stellarTxHash && !kycPending;
 
-  // Keep this widget's state while KYC is open so cancelling preserves the form.
+  // Keep this widget's state while a step is open so cancelling preserves the form.
+  if (pendingKyc?.type === 'FORM') {
+    return (
+      <RequirementFormModal
+        formId={pendingKyc.optionId}
+        progress={pendingKyc.progress}
+        onClose={() => {
+          kycAttempt.current = null;
+          setPendingKyc(null);
+        }}
+        onSubmitted={() => {
+          if (kycAttempt.current !== pendingKyc) return;
+          kycAttempt.current = null;
+          setPendingKyc(null);
+          void requoteAfterKyc('FORM');
+        }}
+      />
+    );
+  }
+
   if (pendingKyc) {
     return (
       <KycModal
         country={country}
         corridorId={pendingKyc.corridorId}
-        providerId={pendingKyc.kycProviderId}
+        providerId={pendingKyc.optionId}
         onClose={() => {
           kycAttempt.current = null;
           setPendingKyc(null);

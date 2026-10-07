@@ -961,6 +961,16 @@ export type RampsQuoteResponse = pollarPaths['/ramps/quote']['get']['responses']
  */
 export type RampQuoteRequirement = NonNullable<RampsQuoteResponse['requirementsRequired']>[number];
 
+/** A form asked by a FORM requirement step, with the user's previous answers. */
+export type RequirementForm =
+  pollarPaths['/requirements/forms/{formId}']['get']['responses'][200]['content']['application/json']['content'];
+export type RequirementFormField = RequirementForm['fields'][number];
+export type RequirementFormAnswers = RequirementForm['answers'];
+export type RequirementFormSubmitted =
+  pollarPaths['/requirements/forms/{formId}']['post']['responses'][200]['content']['application/json']['content'];
+/** One field the server refused, from a KYC_FORM_INVALID_ANSWERS error's `body.errors`. */
+export type RequirementFormAnswerError = { key: string; code: string };
+
 export type RampsOnrampBody = NonNullable<pollarPaths['/ramps/onramp']['post']['requestBody']>['content']['application/json'];
 export type RampsOnrampResponse =
   pollarPaths['/ramps/onramp']['post']['responses'][200]['content']['application/json']['content'];

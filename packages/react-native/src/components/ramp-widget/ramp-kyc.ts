@@ -1,26 +1,42 @@
 import type { RampQuoteRequirement } from '@pollar/core';
 import { kycReviewMessage } from '../kyc-modal/kyc-messages';
 
-/** Open platform KYC only for the backend's explicit, scoped pre-transaction gate. */
-export function requiredRampKyc(error: unknown) {
+/** A requirement step the user must complete before a route: a KYC option or a form. */
+export type PendingRequirement = {
+  rampProviderId: string;
+  corridorId: string;
+  type: 'KYC' | 'FORM';
+  optionId: string;
+  /** Known when it comes from the quote; the start gate does not say. */
+  progress?: { position: number; total: number };
+};
+
+const nonEmpty = (value: unknown): value is string => typeof value === 'string' && !!value.trim();
+
+/**
+ * The step the backend's start gate names, or null for any other error. v2 says
+ * `requirementType` and `optionId`; a KYC-only body names the option as `kycProviderId`.
+ */
+export function requiredRampKyc(error: unknown): PendingRequirement | null {
   if (!error || typeof error !== 'object') return null;
   const { code, body } = error as { code?: unknown; body?: unknown };
   if (code !== 'SDK_RAMPS_KYC_REQUIRED' || !body || typeof body !== 'object') return null;
-  const { rampProviderId, kycProviderId, corridorId } = body as {
-    rampProviderId?: unknown;
-    kycProviderId?: unknown;
-    corridorId?: unknown;
+  const { rampProviderId, corridorId, requirementType, optionId, kycProviderId } = body as Record<string, unknown>;
+  if (!nonEmpty(rampProviderId) || !nonEmpty(corridorId)) return null;
+  if (requirementType === 'FORM' && nonEmpty(optionId)) return { rampProviderId, corridorId, type: 'FORM', optionId };
+  const kyc = nonEmpty(optionId) && requirementType === 'KYC' ? optionId : kycProviderId;
+  return nonEmpty(kyc) ? { rampProviderId, corridorId, type: 'KYC', optionId: kyc } : null;
+}
+
+/** The step a locked route names in the quote. */
+export function pendingFromQuote(requirement: RampQuoteRequirement): PendingRequirement {
+  return {
+    rampProviderId: requirement.rampProviderId,
+    corridorId: requirement.corridorId,
+    type: requirement.type,
+    optionId: requirement.optionId,
+    progress: { position: requirement.completed + 1, total: requirement.total },
   };
-  if (
-    typeof rampProviderId !== 'string' ||
-    !rampProviderId.trim() ||
-    typeof kycProviderId !== 'string' ||
-    !kycProviderId.trim() ||
-    typeof corridorId !== 'string' ||
-    !corridorId.trim()
-  )
-    return null;
-  return { rampProviderId, kycProviderId, corridorId };
 }
 
 /**
@@ -28,10 +44,11 @@ export function requiredRampKyc(error: unknown) {
  * held for review (`reviewReason`) or rejected has nothing the user can do from
  * here, so those rows carry no button.
  */
-export function lockedRouteCopy(requirement: Pick<RampQuoteRequirement, 'status' | 'reviewReason'>): {
+export function lockedRouteCopy(requirement: Pick<RampQuoteRequirement, 'status' | 'reviewReason'> & { type?: string }): {
   message: string;
   action: string | null;
 } {
+  if (requirement.type === 'FORM') return { message: 'Answer a few questions to see this route', action: 'Continue' };
   switch (requirement.status) {
     case 'expired':
       return { message: 'Your verification expired', action: 'Verify again' };

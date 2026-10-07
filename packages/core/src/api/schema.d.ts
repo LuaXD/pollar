@@ -1021,6 +1021,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/requirements/forms/{formId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a requirement form
+         * @description The form a FORM step asks for (the `optionId` of a pending step in the quote's `requirementsRequired`): its current fields, the user's previous answers to prefill, and the required keys still open.
+         */
+        get: operations["getRequirementsFormsByFormId"];
+        put?: never;
+        /**
+         * Submit a requirement form
+         * @description Send the full set of answers. They are checked against the current version and stored encrypted; a 422 `KYC_FORM_INVALID_ANSWERS` lists every field that is missing or invalid. Quote again afterwards.
+         */
+        post: operations["postRequirementsFormsByFormId"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/kyc/status": {
         parameters: {
             query?: never;
@@ -6579,6 +6603,246 @@ export interface operations {
             };
         };
     };
+    getRequirementsFormsByFormId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                formId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The form and where the user stands on it */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_REQUIREMENT_FORM";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            formId: string;
+                            version: number;
+                            name: string;
+                            description: string | null;
+                            fields: {
+                                key: string;
+                                /** @enum {string} */
+                                type: "text" | "textarea" | "number" | "date" | "select" | "multiselect" | "checkbox" | "email" | "phone";
+                                label: {
+                                    en: string;
+                                    es: string;
+                                };
+                                help?: {
+                                    en?: string;
+                                    es?: string;
+                                };
+                                /** @default false */
+                                required: boolean;
+                                options?: {
+                                    value: string;
+                                    label: {
+                                        en: string;
+                                        es: string;
+                                    };
+                                }[];
+                                validation?: {
+                                    min?: number;
+                                    max?: number;
+                                    maxLength?: number;
+                                    pattern?: string;
+                                };
+                            }[];
+                            answers: {
+                                [key: string]: string | number | boolean | string[];
+                            };
+                            missing: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+        };
+    };
+    postRequirementsFormsByFormId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                formId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answers: {
+                        [key: string]: string | number | boolean | string[];
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Answers stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_REQUIREMENT_FORM_SUBMITTED";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            formId: string;
+                            version: number;
+                            missing: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+        };
+    };
     getKycStatus: {
         parameters: {
             query?: {
@@ -6933,7 +7197,7 @@ export interface operations {
                                 provider: string;
                                 code: string;
                             }[];
-                            /** @description Routes not quoted because their corridor has a requirement step the user has not completed. Every step is required, in order; this is the first pending one (`position`, with `completed` of `total` done). For a `KYC` step, complete `optionId` with this `corridorId` (the /kyc routes), then quote again. `status`: none (never started), pending (in progress or held for review, see `reviewReason`), rejected, expired. Returned on /v2 only. */
+                            /** @description Routes not quoted because their corridor has a requirement step the user has not completed. Every step is required, in order; this is the first pending one (`position`, with `completed` of `total` done). For a `KYC` step, complete `optionId` with this `corridorId` (the /kyc routes); for a `FORM` step, answer form `optionId` (/requirements/forms). Then quote again. `status`: none (never started), pending (in progress or held for review, see `reviewReason`), rejected, expired. Returned on /v2 only. */
                             requirementsRequired?: {
                                 provider: string;
                                 rampProviderId: string;
@@ -6942,7 +7206,7 @@ export interface operations {
                                 completed: number;
                                 total: number;
                                 /** @enum {string} */
-                                type: "KYC";
+                                type: "KYC" | "FORM";
                                 optionId: string;
                                 /** @enum {string} */
                                 status: "none" | "pending" | "rejected" | "expired";
