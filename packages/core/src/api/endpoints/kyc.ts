@@ -97,12 +97,17 @@ export async function resolveKyc(
   }
 }
 
-/** Whether polling can stop: a final decision, or one held for a person to review. */
+/**
+ * Whether polling can stop: a final decision, one held for a person to review, or one
+ * the vendor approved that Pollar is still recording (`status: 'pending'`,
+ * `decisionStatus: 'approved'`), which another read seconds later does not change.
+ */
 function isSettled({ status, decisionStatus }: KycStatusContent): boolean {
   return (
     status === 'approved' ||
     status === 'rejected' ||
     status === 'expired' ||
+    decisionStatus === 'approved' ||
     decisionStatus === 'manual_review' ||
     decisionStatus === 'rejected' ||
     decisionStatus === 'expired'
@@ -111,8 +116,10 @@ function isSettled({ status, decisionStatus }: KycStatusContent): boolean {
 
 /**
  * Polls GET /kyc/status every intervalMs until the decision settles: approved,
- * rejected, expired, or held for manual review (`status: 'pending'` with
- * `decisionStatus: 'manual_review'` and a `reviewReason`), and returns that read.
+ * rejected, expired, held for manual review (`status: 'pending'` with
+ * `decisionStatus: 'manual_review'` and a `reviewReason`), or approved by the vendor
+ * and still being recorded (`status: 'pending'`, `decisionStatus: 'approved'`), and
+ * returns that read.
  * A failed read throws at once so the caller can offer a retry.
  * Throws if timeoutMs is exceeded.
  *
@@ -135,7 +142,8 @@ export async function pollKycDecision(
 
 /**
  * {@link pollKycDecision}, reduced to the status. Resolves `'pending'` when the
- * decision is held for manual review; read {@link pollKycDecision} to tell why.
+ * decision is held for manual review or still being recorded; read
+ * {@link pollKycDecision} to tell which.
  */
 export async function pollKycStatus(
   api: PollarApiClient,

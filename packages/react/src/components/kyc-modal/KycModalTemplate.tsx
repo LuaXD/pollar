@@ -3,7 +3,7 @@
 import type { KycProvider, KycStartResponse, KycStatus as KycStatusValue } from '@pollar/core';
 import { buildModalCssVars, type ModalStyleOverrides } from '../modal-theme';
 import { KycStatus as KycStatusBadge } from './KycStatus';
-import { kycReviewMessage } from './kyc-messages';
+import { kycProcessingMessage, kycReviewMessage } from './kyc-messages';
 
 export type KycStep = 'select_provider' | 'verifying' | 'polling' | 'done';
 
@@ -19,6 +19,8 @@ interface KycModalTemplateProps {
   kycStatus: KycStatusValue;
   /** Set when the decision is held for manual review (e.g. DUPLICATE_DOCUMENT). */
   reviewReason?: string | null;
+  /** The vendor approved and Pollar is still recording it (`kycStatus` stays `pending`). */
+  processing?: boolean;
   isLoading: boolean;
   error?: string | null;
   onSelectProvider: (provider: KycProvider) => void;
@@ -39,6 +41,7 @@ export function KycModalTemplate({
   session,
   kycStatus,
   reviewReason,
+  processing = false,
   isLoading,
   error,
   onSelectProvider,
@@ -221,7 +224,7 @@ export function KycModalTemplate({
               )}
             </svg>
           </span>
-          <KycStatusBadge status={kycStatus} />
+          <KycStatusBadge status={kycStatus} {...(processing ? { label: 'Approved' } : {})} />
           <p className="pollar-kyc-result-text">
             {kycStatus === 'approved'
               ? 'Your identity has been verified successfully.'
@@ -229,7 +232,9 @@ export function KycModalTemplate({
                 ? 'Your verification was not approved. Contact support for the next steps.'
                 : kycStatus === 'expired'
                   ? 'Your verification expired. Start again to verify your identity.'
-                  : kycReviewMessage(reviewReason)}
+                  : processing
+                    ? kycProcessingMessage()
+                    : kycReviewMessage(reviewReason)}
           </p>
           <div className="pollar-modal-actions">
             {kycStatus === 'expired' && onStartAgain && (

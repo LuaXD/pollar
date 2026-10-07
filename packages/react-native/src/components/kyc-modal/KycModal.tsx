@@ -1,10 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator, ScrollView, Linking, AppState } from 'react-native';
-import { isPollarApiError, type KycProvider, type KycStartResponse, type KycStatus as KycStatusValue } from '@pollar/core';
+import {
+  isPollarApiError,
+  type KycProvider,
+  type KycStartResponse,
+  type KycStatus as KycStatusValue,
+  type KycStatusContent,
+} from '@pollar/core';
 import { usePollar } from '../../context';
 import { PollarModalFooter } from '../commons';
 import { KycStatus as KycStatusBadge } from './KycStatus';
-import { kycErrorMessage, kycReviewMessage } from './kyc-messages';
+import { kycErrorMessage, kycProcessingMessage, kycReviewMessage } from './kyc-messages';
 
 export type KycStep = 'select_provider' | 'verifying' | 'polling' | 'done';
 
@@ -18,6 +24,8 @@ export interface KycModalTemplateProps {
   kycStatus: KycStatusValue;
   /** Set when the decision is held for manual review (e.g. DUPLICATE_DOCUMENT). */
   reviewReason?: string | null | undefined;
+  /** The vendor approved and Pollar is still recording it (`kycStatus` stays `pending`). */
+  processing?: boolean | undefined;
   isLoading: boolean;
   error?: string | null | undefined;
   onSelectProvider: (provider: KycProvider) => void;
@@ -37,6 +45,7 @@ export function KycModalTemplate({
   session,
   kycStatus,
   reviewReason,
+  processing = false,
   isLoading,
   error,
   onSelectProvider,
@@ -74,7 +83,9 @@ export function KycModalTemplate({
         ? 'Your verification was not approved. Contact support for the next steps.'
         : kycStatus === 'expired'
           ? 'Your verification expired. Start again to verify your identity.'
-          : kycReviewMessage(reviewReason);
+          : processing
+            ? kycProcessingMessage()
+            : kycReviewMessage(reviewReason);
 
   return (
     <View style={[styles.card, { backgroundColor: colors.bg, borderColor: colors.border }]}>
@@ -163,7 +174,7 @@ export function KycModalTemplate({
 
         {step === 'done' && (
           <View style={styles.resultBox}>
-            <KycStatusBadge status={kycStatus} />
+            <KycStatusBadge status={kycStatus} {...(processing ? { label: 'Approved' } : {})} />
             <Text style={[styles.resultText, { color: kycStatus === 'approved' ? colors.successText : colors.text }]}>
               {resultText}
             </Text>
@@ -226,6 +237,7 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', corridorId,
   const [session, setSession] = useState<KycStartResponse | null>(null);
   const [kycStatus, setKycStatus] = useState<KycStatusValue>('none');
   const [reviewReason, setReviewReason] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // One key per option for this modal: a retried start returns the vendor session
@@ -243,11 +255,22 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', corridorId,
 
   const client = getClient();
 
-  function finish(status: KycStatusValue, reason: string | null = null) {
+  function finish(status: KycStatusValue, reason: string | null = null, isProcessing = false) {
     setKycStatus(status);
     setReviewReason(reason);
+    setProcessing(isProcessing);
     setStep('done');
     if (status === 'approved') onApproved?.();
+  }
+
+  function finishWith(read: KycStatusContent) {
+    if (read.status === 'pending' && read.decisionStatus === 'approved') finish('pending', null, true);
+    else if (read.decisionStatus === 'manual_review') finish('pending', read.reviewReason ?? null);
+    else finish(read.decisionStatus === 'expired' ? 'expired' : read.status);
+  }
+
+  function readStatus(providerId: string) {
+    return corridorId ? client.getKycStatus(undefined, corridorId) : client.getKycStatus(providerId);
   }
 
   // One session request at a time: a second one for the same key would only wait on
@@ -278,10 +301,13 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', corridorId,
         finish('approved');
         return;
       }
-      // A session of this user is in the provider's review (or approved and still being
-      // recorded): show that instead of opening another one.
+      // A session of this user is in the provider's review, or approved and still being
+      // recorded: show which one instead of opening another session.
       if (code === 'SDK_KYC_UNDER_REVIEW') {
-        finish('pending');
+        await readStatus(provider.id).then(
+          (read) => mounted.current && finishWith(read),
+          () => mounted.current && finish('pending'),
+        );
         return;
       }
       if (code === 'SDK_KYC_SESSION_EXPIRED') delete idempotencyKeys.current[provider.id];
@@ -338,8 +364,7 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', corridorId,
         ...(corridorId ? { corridorId } : {}),
       });
       if (!mounted.current) return;
-      if (read.decisionStatus === 'manual_review') finish('pending', read.reviewReason ?? null);
-      else finish(read.decisionStatus === 'expired' ? 'expired' : read.status);
+      finishWith(read);
     } catch {
       if (!mounted.current) return;
       setError('We could not confirm your result yet. Check again shortly; this does not mean your verification was rejected.');
@@ -375,6 +400,7 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', corridorId,
     setSession(null);
     setKycStatus('none');
     setReviewReason(null);
+    setProcessing(false);
     if (selectedProvider) void handleSelectProvider(selectedProvider);
     else setStep('select_provider');
   }
@@ -391,6 +417,7 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', corridorId,
           session={session}
           kycStatus={kycStatus}
           reviewReason={reviewReason}
+          processing={processing}
           isLoading={isLoading}
           error={error}
           onSelectProvider={handleSelectProvider}

@@ -170,6 +170,8 @@
 }
 .pollar-kyc-result-icon--approved { color: var(--pollar-success-text, #15803d); background: color-mix(in srgb, var(--pollar-success-text, #15803d) 10%, transparent); }
 
+.pollar-kyc-result .pollar-modal-actions { align-self: stretch; }
+
 .pollar-kyc-result-text {
   max-width: 38ch;
   line-height: 1.6;

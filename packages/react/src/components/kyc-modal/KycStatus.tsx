@@ -5,6 +5,8 @@ import type { CSSProperties } from 'react';
 
 interface KycStatusProps {
   status: KycStatusValue;
+  /** Replaces the status label, keeping its color. */
+  label?: string;
   className?: string;
 }
 
@@ -16,7 +18,7 @@ const STATUS_CONFIG: Record<KycStatusValue, { label: string; color: string; dot:
   expired: { label: 'Expired', color: '#6b7280', dot: false },
 };
 
-export function KycStatus({ status, className }: KycStatusProps) {
+export function KycStatus({ status, label, className }: KycStatusProps) {
   const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.none;
   return (
     <span
@@ -24,7 +26,7 @@ export function KycStatus({ status, className }: KycStatusProps) {
       style={{ '--pollar-kyc-color': config.color } as CSSProperties}
     >
       {config.dot && <span className="pollar-kyc-badge-dot" />}
-      {config.label}
+      {label ?? config.label}
     </span>
   );
 }

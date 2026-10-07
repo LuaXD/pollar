@@ -4,6 +4,8 @@ import type { KycStatus as KycStatusValue } from '@pollar/core';
 
 interface KycStatusProps {
   status: KycStatusValue;
+  /** Replaces the status label, keeping its color. */
+  label?: string | undefined;
 }
 
 const STATUS_CONFIG: Record<KycStatusValue, { label: string; color: string; dot: boolean }> = {
@@ -14,12 +16,12 @@ const STATUS_CONFIG: Record<KycStatusValue, { label: string; color: string; dot:
   expired: { label: 'Expired', color: '#6b7280', dot: false },
 };
 
-export function KycStatus({ status }: KycStatusProps) {
+export function KycStatus({ status, label }: KycStatusProps) {
   const config = STATUS_CONFIG[status] ?? STATUS_CONFIG.none;
   return (
     <View style={[styles.badge, { borderColor: config.color }]}>
       {config.dot && <View style={[styles.dot, { backgroundColor: config.color }]} />}
-      <Text style={[styles.label, { color: config.color }]}>{config.label}</Text>
+      <Text style={[styles.label, { color: config.color }]}>{label ?? config.label}</Text>
     </View>
   );
 }

@@ -29,3 +29,8 @@ export function kycReviewMessage(reviewReason: string | null | undefined): strin
   }
   return 'Your verification is still being reviewed. You can check again shortly.';
 }
+
+/** A decision the vendor approved that Pollar is still recording. */
+export function kycProcessingMessage(): string {
+  return 'Your verification was approved. We are finishing setting it up; check again in a minute.';
+}
