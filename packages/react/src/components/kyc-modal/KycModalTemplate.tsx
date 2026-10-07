@@ -3,6 +3,7 @@
 import type { KycProvider, KycStartResponse, KycStatus as KycStatusValue } from '@pollar/core';
 import { buildModalCssVars, type ModalStyleOverrides } from '../modal-theme';
 import { KycStatus as KycStatusBadge } from './KycStatus';
+import { kycReviewMessage } from './kyc-messages';
 
 export type KycStep = 'select_provider' | 'verifying' | 'polling' | 'done';
 
@@ -16,10 +17,14 @@ interface KycModalTemplateProps {
   selectedProvider: KycProvider | null;
   session: KycStartResponse | null;
   kycStatus: KycStatusValue;
+  /** Set when the decision is held for manual review (e.g. DUPLICATE_DOCUMENT). */
+  reviewReason?: string | null;
   isLoading: boolean;
   error?: string | null;
   onSelectProvider: (provider: KycProvider) => void;
   onDoneVerifying: () => void;
+  /** Open a new session after the previous one expired. */
+  onStartAgain?: () => void;
   onRefresh: () => void;
   onClose: () => void;
 }
@@ -33,17 +38,26 @@ export function KycModalTemplate({
   selectedProvider,
   session,
   kycStatus,
+  reviewReason,
   isLoading,
   error,
   onSelectProvider,
   onDoneVerifying,
+  onStartAgain,
   onRefresh,
   onClose,
 }: KycModalTemplateProps) {
   const cssVars = buildModalCssVars(theme, accentColor, styleOverrides, 'hero');
 
   return (
-    <div className={`pollar-modal-card pollar-kyc-modal ${step === 'verifying' ? 'pollar-kyc-modal--verifying' : ''}`} role="dialog" aria-modal="true" aria-label="Identity verification" style={cssVars} onClick={(e) => e.stopPropagation()}>
+    <div
+      className={`pollar-modal-card pollar-kyc-modal ${step === 'verifying' ? 'pollar-kyc-modal--verifying' : ''}`}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Identity verification"
+      style={cssVars}
+      onClick={(e) => e.stopPropagation()}
+    >
       <div className="pollar-modal-header">
         <div className="pollar-kyc-header-text">
           <h2 className="pollar-modal-title">Identity verification</h2>
@@ -90,7 +104,11 @@ export function KycModalTemplate({
         </div>
       </div>
 
-      {error && <p className="pollar-kyc-error" role="alert">{error}</p>}
+      {error && (
+        <p className="pollar-kyc-error" role="alert">
+          {error}
+        </p>
+      )}
 
       {step === 'select_provider' &&
         (isLoading && providers.length === 0 ? (
@@ -112,7 +130,13 @@ export function KycModalTemplate({
                 onClick={() => onSelectProvider(p)}
               >
                 <span className="pollar-kyc-provider-name">{p.name}</span>
-                <span className="pollar-kyc-provider-flow">{isLoading && selectedProvider?.id === p.id ? 'Opening…' : p.flow === 'redirect' ? 'Continue in a new tab' : 'Continue here'}</span>
+                <span className="pollar-kyc-provider-flow">
+                  {isLoading && selectedProvider?.id === p.id
+                    ? 'Opening…'
+                    : p.flow === 'redirect'
+                      ? 'Continue in a new tab'
+                      : 'Continue here'}
+                </span>
               </button>
             ))}
           </div>
@@ -121,8 +145,15 @@ export function KycModalTemplate({
       {step === 'verifying' && selectedProvider && (
         <>
           <div className="pollar-kyc-session-bar">
-            <span className="pollar-kyc-session-label"><span className="pollar-kyc-session-dot" />Verification in progress</span>
-            {session?.kycUrl && <a href={session.kycUrl} target="_blank" rel="noopener noreferrer">Open in new tab ↗</a>}
+            <span className="pollar-kyc-session-label">
+              <span className="pollar-kyc-session-dot" />
+              Verification in progress
+            </span>
+            {session?.kycUrl && (
+              <a href={session.kycUrl} target="_blank" rel="noopener noreferrer">
+                Open in new tab ↗
+              </a>
+            )}
           </div>
           <div className="pollar-kyc-iframe-wrap">
             {session?.kycUrl && selectedProvider.flow === 'redirect' ? (
@@ -147,12 +178,12 @@ export function KycModalTemplate({
           <div className="pollar-kyc-footer">
             <p>Finished the steps? Check your status to continue.</p>
             <div className="pollar-modal-actions">
-            <button type="button" className="pollar-btn-secondary" onClick={onClose}>
-              Close
-            </button>
-            <button type="button" className="pollar-btn-primary" onClick={onDoneVerifying}>
-              Check status
-            </button>
+              <button type="button" className="pollar-btn-secondary" onClick={onClose}>
+                Close
+              </button>
+              <button type="button" className="pollar-btn-primary" onClick={onDoneVerifying}>
+                Check status
+              </button>
             </div>
           </div>
         </>
@@ -168,18 +199,49 @@ export function KycModalTemplate({
       {step === 'done' && (
         <div className="pollar-kyc-result">
           <span className={`pollar-kyc-result-icon pollar-kyc-result-icon--${kycStatus}`} aria-hidden="true">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-              {kycStatus === 'approved' ? <path d="m5 12 4 4L19 6" /> : kycStatus === 'rejected' ? <path d="m7 7 10 10M17 7 7 17" /> : <><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></>}
+            <svg
+              width="28"
+              height="28"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              {kycStatus === 'approved' ? (
+                <path d="m5 12 4 4L19 6" />
+              ) : kycStatus === 'rejected' ? (
+                <path d="m7 7 10 10M17 7 7 17" />
+              ) : (
+                <>
+                  <circle cx="12" cy="12" r="8" />
+                  <path d="M12 7v5l3 2" />
+                </>
+              )}
             </svg>
           </span>
           <KycStatusBadge status={kycStatus} />
           <p className="pollar-kyc-result-text">
             {kycStatus === 'approved'
               ? 'Your identity has been verified successfully.'
-              : kycStatus === 'rejected' ? 'Your verification was not approved. Contact support for the next steps.' : 'Your verification is still being reviewed. You can check again shortly.'}
+              : kycStatus === 'rejected'
+                ? 'Your verification was not approved. Contact support for the next steps.'
+                : kycStatus === 'expired'
+                  ? 'Your verification expired. Start again to verify your identity.'
+                  : kycReviewMessage(reviewReason)}
           </p>
           <div className="pollar-modal-actions">
-            {kycStatus !== 'approved' && kycStatus !== 'rejected' && <button type="button" className="pollar-btn-secondary" onClick={onDoneVerifying}>Check again</button>}
+            {kycStatus === 'expired' && onStartAgain && (
+              <button type="button" className="pollar-btn-secondary" onClick={onStartAgain} disabled={isLoading}>
+                Start again
+              </button>
+            )}
+            {kycStatus !== 'approved' && kycStatus !== 'rejected' && kycStatus !== 'expired' && (
+              <button type="button" className="pollar-btn-secondary" onClick={onDoneVerifying}>
+                Check again
+              </button>
+            )}
             <button type="button" className="pollar-btn-primary" onClick={onClose}>
               Close
             </button>

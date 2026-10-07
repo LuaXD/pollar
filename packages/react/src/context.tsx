@@ -184,6 +184,7 @@ interface PollarContextValue {
   // kyc
   openKycModal: (options?: {
     corridorId?: string;
+    providerId?: string;
     country?: string;
     level?: 'basic' | 'intermediate' | 'enhanced';
     onApproved?: () => void;
@@ -566,6 +567,7 @@ export function PollarProvider({
   const [kycModalOpen, setKycModalOpen] = useState(false);
   const [kycModalOptions, setKycModalOptions] = useState<{
     corridorId?: string;
+    providerId?: string;
     country?: string;
     level?: 'basic' | 'intermediate' | 'enhanced';
     onApproved?: () => void;
@@ -725,6 +727,7 @@ export function PollarProvider({
             onClose={() => setKycModalOpen(false)}
             {...(kycModalOptions.country !== undefined && { country: kycModalOptions.country })}
             {...(kycModalOptions.corridorId !== undefined && { corridorId: kycModalOptions.corridorId })}
+            {...(kycModalOptions.providerId !== undefined && { providerId: kycModalOptions.providerId })}
             {...(kycModalOptions.level !== undefined && { level: kycModalOptions.level })}
             {...(kycModalOptions.onApproved !== undefined && { onApproved: kycModalOptions.onApproved })}
           />
