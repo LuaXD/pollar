@@ -1,9 +1,20 @@
 import React from 'react';
-import { Modal, Text } from 'react-native';
+import { ActivityIndicator, Modal, Text } from 'react-native';
 import { act, fireEvent, render, renderAsync, waitFor } from '@testing-library/react-native';
 import { PollarClient } from '@pollar/core';
 import { PollarProvider, usePollar } from '../src/context';
-import { FeaturePanel, WalletPanel, KycPreview, TransactionPanel, RampPanel, AuthPanel } from '../src/components/FeaturePanel';
+import {
+  FeaturePanel,
+  WalletPanel,
+  KycPreview,
+  TransactionPanel,
+  RampPanel,
+  AuthPanel,
+  EarnPanel,
+} from '../src/components/FeaturePanel';
+import { RampWidget } from '../src/components/ramp-widget/RampWidget';
+import { KycModal } from '../src/components/kyc-modal/KycModal';
+import { LoginModalTemplate } from '../src/components/login-modal/LoginModalUI';
 import { ActionButton, ActionState, useAction } from '../src/components/native-ui';
 import { AppShell } from '../src/components/AppShell';
 import { FeatureCatalog } from '../src/components/FeatureCatalog';
@@ -119,6 +130,122 @@ function Probe() {
   );
 }
 beforeEach(() => jest.clearAllMocks());
+
+test('earn provider changes clear old opportunities and block choices during loading', async () => {
+  const client = fakeClient();
+  client.getEarnProviders.mockResolvedValue(['blend', 'defindex']);
+  let resolveOpportunities;
+  client.getEarnOpportunities.mockResolvedValueOnce([{ id: 'blend-only' }]).mockImplementationOnce(
+    () =>
+      new Promise((resolve) => {
+        resolveOpportunities = resolve;
+      }),
+  );
+  const view = await renderAsync(
+    <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
+      <EarnPanel />
+    </PollarProvider>,
+  );
+  await act(async () => fireEvent.press(view.getByLabelText('blend')));
+  expect(view.getByLabelText('blend-only')).toBeTruthy();
+  fireEvent.press(view.getByLabelText('defindex'));
+  expect(view.queryByLabelText('blend-only')).toBeNull();
+  expect(view.getByLabelText('blend')).toBeDisabled();
+  fireEvent.press(view.getByLabelText('blend'));
+  expect(client.getEarnOpportunities).toHaveBeenCalledTimes(2);
+  await act(async () => resolveOpportunities([{ id: 'defindex-only' }]));
+  expect(view.getByLabelText('defindex-only')).toBeTruthy();
+  expect(view.getByLabelText('blend')).toBeEnabled();
+});
+
+test('ramp route discovery stays stable and refunded lifecycle stops status polling', async () => {
+  jest.useFakeTimers();
+  try {
+    const client = fakeClient();
+    client.auth = { step: 'authenticated', verified: true, session: { clientSessionId: 'refund-session' } };
+    const pending = { txId: 'refund-fixture', provider: 'Fixture', status: 'pending', lifecycleState: 'awaiting_payment' };
+    client.getRampTransaction.mockResolvedValue(pending);
+    function SavedRamp() {
+      const p = usePollar();
+      return (
+        <>
+          <ActionButton title="Load pending" onPress={() => p.setRamp({ direction: 'offramp', transaction: pending })} />
+          <ActionButton
+            title="Load refund"
+            onPress={() => p.setRamp({ direction: 'offramp', transaction: { ...pending, lifecycleState: 'refunded' } })}
+          />
+          <RampPanel />
+        </>
+      );
+    }
+    const view = await renderAsync(
+      <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
+        <SavedRamp />
+      </PollarProvider>,
+    );
+    await act(async () => fireEvent.press(view.getByText('Load pending')));
+    await act(async () => jest.advanceTimersByTime(5000));
+    expect(client.getRampTransaction).toHaveBeenCalledTimes(1);
+    await act(async () => fireEvent.press(view.getByText('Load refund')));
+    expect(view.getByText('New ramp transaction')).toBeTruthy();
+    await act(async () => jest.advanceTimersByTime(15000));
+    expect(client.getRampTransaction).toHaveBeenCalledTimes(1);
+    expect(client.getRampRoutes).toHaveBeenCalledTimes(1);
+    expect(view.queryByText('Complete withdrawal after verification')).toBeNull();
+    await view.unmountAsync();
+  } finally {
+    jest.useRealTimers();
+  }
+});
+
+test('exported ramp and KYC components preserve native modal dismissal', async () => {
+  fakeClient();
+  const onClose = jest.fn();
+  const ramp = await renderAsync(
+    <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
+      <RampWidget onClose={onClose} />
+    </PollarProvider>,
+  );
+  fireEvent(
+    ramp.UNSAFE_getAllByType(Modal).find((modal) => modal.props.onRequestClose === onClose),
+    'requestClose',
+  );
+  expect(onClose).toHaveBeenCalledTimes(1);
+  await ramp.unmountAsync();
+  const kyc = render(<KycModal onClose={onClose} country="BO" />);
+  fireEvent(kyc.UNSAFE_getByType(Modal), 'requestClose');
+  expect(onClose).toHaveBeenCalledTimes(2);
+});
+
+test.each(['signing_wallet_challenge', 'creating_passkey', 'deploying_smart_account'])(
+  '%s keeps login controls busy',
+  (step) => {
+    const submit = jest.fn();
+    const view = render(
+      <LoginModalTemplate
+        theme="light"
+        accentColor="#1763df"
+        logoUrl={null}
+        emailEnabled
+        embeddedWallets
+        providers={{ google: true, github: true, discord: false, x: false, apple: false }}
+        appName="Fixture"
+        email="user@example.test"
+        authState={{ step }}
+        onEmailSubmit={submit}
+        onBack={jest.fn()}
+        onCancel={jest.fn()}
+        onRetry={jest.fn()}
+      />,
+    );
+    expect(view.getByText('Submit')).toBeDisabled();
+    expect(view.getByText('Google')).toBeDisabled();
+    expect(view.getByText('Wallet')).toBeDisabled();
+    expect(view.UNSAFE_getAllByType(ActivityIndicator).length).toBeGreaterThan(0);
+    fireEvent.press(view.getByText('Submit'));
+    expect(submit).not.toHaveBeenCalled();
+  },
+);
 test('SDK catalog reports route selection without owning app routing', () => {
   const select = jest.fn();
   const view = render(

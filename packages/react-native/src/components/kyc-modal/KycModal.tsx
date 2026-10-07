@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, Pressable } from 'react-native';
+import { Modal, View, Text, Pressable } from 'react-native';
 
 // Retained for source compatibility; the native preview never reaches approved.
 export type KycStep = 'idle' | 'in-progress' | 'approved';
@@ -29,5 +29,9 @@ export function KycModalTemplate({ theme, country, level = 'basic', onClose }: K
   );
 }
 export function KycModal(props: KycModalTemplateProps) {
-  return <KycModalTemplate {...props} />;
+  return (
+    <Modal visible animationType="slide" onRequestClose={props.onClose} presentationStyle="pageSheet">
+      <KycModalTemplate {...props} />
+    </Modal>
+  );
 }

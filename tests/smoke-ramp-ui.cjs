@@ -156,36 +156,41 @@ const base = {
     return 'signed:unsigned';
   });
   const widgetRoot = createRoot(document.getElementById('root'));
-  await React.act(async () =>
-    widgetRoot.render(
-      React.createElement(
-        PollarProvider,
-        { client: main, appConfig: { application: { name: 'Fixture', network: 'mainnet', chains: [] }, styles: {} } },
-        React.createElement(RampWidget, { onClose() {} }),
+  async function startWidget(widgetRoot) {
+    await React.act(async () =>
+      widgetRoot.render(
+        React.createElement(
+          PollarProvider,
+          { client: main, appConfig: { application: { name: 'Fixture', network: 'mainnet', chains: [] }, styles: {} } },
+          React.createElement(RampWidget, { onClose() {} }),
+        ),
       ),
-    ),
-  );
-  const routeSelect = [...document.querySelectorAll('select')].find((select) =>
-    [...select.options].some((option) => option.value === route.routeId),
-  );
-  assert.ok(routeSelect);
-  await React.act(async () => {
-    routeSelect.value = route.routeId;
-    routeSelect.dispatchEvent(new window.Event('change', { bubbles: true }));
-  });
-  await React.act(async () => {
-    const input = document.querySelector('input[type=number]');
-    Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, '20');
-    input.dispatchEvent(new window.Event('input', { bubbles: true }));
-  });
-  const findButton = [...document.querySelectorAll('button')].find((button) => button.textContent.includes('Find best route'));
-  assert.equal(findButton.disabled, false);
-  await React.act(async () => findButton.click());
-  const quoteRow = [...document.querySelectorAll('[role=button]')].find((row) =>
-    row.textContent.includes('Registered fixture'),
-  );
-  assert.ok(quoteRow);
-  await React.act(async () => quoteRow.click());
+    );
+    const routeSelect = [...document.querySelectorAll('select')].find((select) =>
+      [...select.options].some((option) => option.value === route.routeId),
+    );
+    assert.ok(routeSelect);
+    await React.act(async () => {
+      routeSelect.value = route.routeId;
+      routeSelect.dispatchEvent(new window.Event('change', { bubbles: true }));
+    });
+    await React.act(async () => {
+      const input = document.querySelector('input[type=number]');
+      Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, '20');
+      input.dispatchEvent(new window.Event('input', { bubbles: true }));
+    });
+    const findButton = [...document.querySelectorAll('button')].find((button) =>
+      button.textContent.includes('Find best route'),
+    );
+    assert.equal(findButton.disabled, false);
+    await React.act(async () => findButton.click());
+    const quoteRow = [...document.querySelectorAll('[role=button]')].find((row) =>
+      row.textContent.includes('Registered fixture'),
+    );
+    assert.ok(quoteRow);
+    await React.act(async () => quoteRow.click());
+  }
+  await startWidget(widgetRoot);
   assert.equal(creates, 1);
   assert.equal(walletSigns, 0);
   assert.match(document.body.textContent, /1.123456789012 NATIVE/);
@@ -194,9 +199,46 @@ const base = {
   );
   assert.equal(walletSigns, 1);
   await React.act(async () => widgetRoot.unmount());
+  // Legacy signing uses the same explicit interaction guarantee while the wallet is pending.
+  main.createOffRamp = async () => ({
+    txId: 'legacy-tx',
+    provider: 'Registered fixture',
+    status: 'pending',
+    pendingSignature: { action: 'withdraw_payment', unsignedXdr: 'unsigned-legacy' },
+  });
+  let legacySigns = 0,
+    submissions = 0,
+    resolveWallet;
+  main.signTx = () => {
+    legacySigns++;
+    return new Promise((resolve) => {
+      resolveWallet = resolve;
+    });
+  };
+  main.submitRampSignature = async () => {
+    submissions++;
+    throw new Error('Signature submission rejected');
+  };
+  const legacyRoot = createRoot(document.getElementById('root'));
+  await startWidget(legacyRoot);
+  assert.equal(legacySigns, 0);
+  const authorize = [...document.querySelectorAll('button')].find(
+    (button) => button.textContent === 'Authorize wallet request',
+  );
+  assert.ok(authorize);
+  await React.act(async () => {
+    authorize.click();
+    authorize.click();
+  });
+  assert.equal(legacySigns, 1);
+  assert.equal(authorize.disabled, true);
+  await React.act(async () => resolveWallet({ status: 'signed', signedXdr: 'signed-legacy' }));
+  assert.equal(submissions, 1);
+  assert.match(document.body.textContent, /Signature submission rejected/);
+  await React.act(async () => legacyRoot.unmount());
   main.destroy();
   console.log(
-    'Web ramp UI: future-chain actions, exact terms, explicit signing, parallel verification and reconciliation passed.',
+    'Web ramp UI: generic and legacy explicit signing, duplicate protection, failures, exact terms and verification passed.',
   );
 })().catch((error) => {
   console.error(error);

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Linking, View } from 'react-native';
+import { Linking, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import { describeRampAction, type PollarClient, type RampSnapshot } from '@pollar/core';
 import { ActionButton, Choice, Field, Label } from '../native-ui';
@@ -95,7 +95,11 @@ export function RampWorkflow({
           {milestone.kind.replace(/_/g, ' ')} · {milestone.verifiedAt}
         </Label>
       ))}
-      {error && <Label>{error}</Label>}
+      {error && (
+        <Text accessibilityRole="alert" accessibilityLiveRegion="assertive" style={{ color: '#d84a53' }}>
+          {error}
+        </Text>
+      )}
       <Label>Reference: {snapshot.txId}</Label>
     </View>
   );

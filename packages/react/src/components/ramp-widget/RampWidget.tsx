@@ -190,6 +190,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
     };
   }, [client]);
   const [completing, setCompleting] = useState(false);
+  const completionLocked = useRef(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const directionRef = useRef(direction);
@@ -484,8 +485,25 @@ export function RampWidget({ onClose }: RampWidgetProps) {
     if (tosUrl) window.open(tosUrl, '_blank', 'noopener,noreferrer');
   }
 
+  async function handleLegacySignature() {
+    if (!txId || !legacySignature || completionLocked.current) return;
+    completionLocked.current = true;
+    setCompleting(true);
+    setErrorMsg(null);
+    try {
+      await resumeWithSignature(txId, legacySignature);
+    } catch (e) {
+      setErrorMsg(rampErrorMessage(e, 'Failed to submit the signature.'));
+      setStep('error');
+    } finally {
+      completionLocked.current = false;
+      setCompleting(false);
+    }
+  }
+
   async function handleCompleteWithdraw() {
-    if (!txId) return;
+    if (!txId || completionLocked.current) return;
+    completionLocked.current = true;
     setCompleting(true);
     setErrorMsg(null);
     try {
@@ -502,6 +520,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
         msg.includes('KYC') ? 'Finish KYC at the provider first, then try again.' : msg || 'Failed to complete the withdrawal.',
       );
     } finally {
+      completionLocked.current = false;
       setCompleting(false);
     }
   }
@@ -513,7 +532,13 @@ export function RampWidget({ onClose }: RampWidgetProps) {
   // `kycBlocking`) is what keeps the button away.
   const kycBlocking = kycPending && !kycApproved;
   const canComplete =
-    !workflow && direction === 'offramp' && step === 'status' && txStatus !== 'completed' && !stellarTxHash && !kycPending;
+    !workflow &&
+    !legacySignature &&
+    direction === 'offramp' &&
+    step === 'status' &&
+    txStatus !== 'completed' &&
+    !stellarTxHash &&
+    !kycPending;
 
   const flowSteps = flowStepsOf(quotes, selectedQuote);
   const flowStepIndex = flowSteps.indexOf(STEP_LABEL[step] ?? '');
@@ -558,7 +583,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
               }}
             />
           ) : legacySignature && step === 'status' ? (
-            <button type="button" disabled={completing} onClick={() => void resumeWithSignature(txId!, legacySignature)}>
+            <button type="button" disabled={completing} onClick={() => void handleLegacySignature()}>
               Authorize wallet request
             </button>
           ) : undefined

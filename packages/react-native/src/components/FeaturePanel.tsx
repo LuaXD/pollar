@@ -640,6 +640,7 @@ export function EarnPanel() {
   const [confirmation, setConfirmation] = useState<'deposit' | 'withdraw'>();
   async function refreshEarn() {
     setProvider(undefined);
+    setOpportunities([]);
     setOpportunity('');
     setPosition(undefined);
     setConfirmation(undefined);
@@ -655,14 +656,16 @@ export function EarnPanel() {
       <ActionButton title="Refresh earn providers" disabled={action.busy} onPress={() => void action.run(refreshEarn)} />
       <Choice
         label="Provider"
+        disabled={action.busy}
         options={providers}
         value={provider ?? ''}
         onChange={(v) => {
-          setProvider(v as EarnProviderId);
-          setOpportunity('');
-          setPosition(undefined);
-          setConfirmation(undefined);
           void action.run(async () => {
+            setProvider(v as EarnProviderId);
+            setOpportunities([]);
+            setOpportunity('');
+            setPosition(undefined);
+            setConfirmation(undefined);
             const list = await p.getEarnOpportunities(v as EarnProviderId);
             setOpportunities(list);
             return list;
@@ -671,6 +674,7 @@ export function EarnPanel() {
       />
       <Choice
         label="Opportunity"
+        disabled={action.busy}
         options={opportunities.map((o) => o.id)}
         value={opportunity}
         onChange={(v) => {
@@ -766,6 +770,7 @@ export function DistributionPanel() {
 }
 export function RampPanel() {
   const p = usePollar();
+  const client = p.getClient();
   const action = useAction();
   const [direction, setDirection] = useState<'onramp' | 'offramp'>(p.ramp?.direction ?? 'onramp');
   const [country, setCountry] = useState('');
@@ -775,6 +780,7 @@ export function RampPanel() {
   const [quoteId, setQuoteId] = useState('');
   const [fields, setFields] = useState<Record<string, string>>({});
   const transaction = p.ramp?.transaction;
+  const terminal = ['completed', 'failed', 'refunded'].includes(transaction?.lifecycleState ?? transaction?.status ?? '');
   const transactionRef = useRef(transaction);
   transactionRef.current = transaction;
   const setTransaction = (next: RampsOnrampResponse | RampsTransactionResponse | undefined) => {
@@ -786,8 +792,7 @@ export function RampPanel() {
   const [routeId, setRouteId] = useState('');
   useEffect(() => {
     let active = true;
-    void p
-      .getClient()
+    void client
       .getRampRoutes()
       .then((result) => {
         if (active) setRoutes(result.routes);
@@ -796,12 +801,12 @@ export function RampPanel() {
     return () => {
       active = false;
     };
-  }, [p.getClient]);
+  }, [client]);
   useEffect(() => {
-    if (!transaction || ['completed', 'failed'].includes(transaction.status)) return;
+    if (!transaction || terminal) return;
     let active = true;
     const timer = setInterval(() => {
-      void p
+      void client
         .getRampTransaction(transaction.txId)
         .then((next) => {
           if (active) setTransaction(next);
@@ -812,7 +817,7 @@ export function RampPanel() {
       active = false;
       clearInterval(timer);
     };
-  }, [transaction?.txId, transaction?.status, p.getRampTransaction]);
+  }, [transaction?.txId, terminal, client]);
   const quote = quotes.find((q) => q.quoteId === quoteId);
   const clearQuotes = () => {
     setQuotes([]);
@@ -1039,7 +1044,7 @@ export function RampPanel() {
                   })
                 }
               />
-              {direction === 'offramp' && transaction.status === 'pending' && (
+              {direction === 'offramp' && transaction.status === 'pending' && !terminal && (
                 <ActionButton
                   title="Complete withdrawal after verification"
                   disabled={action.busy}
@@ -1048,9 +1053,7 @@ export function RampPanel() {
               )}
             </>
           )}
-          {['completed', 'failed'].includes(transaction.status) && (
-            <ActionButton title="New ramp transaction" onPress={() => setTransaction(undefined)} />
-          )}
+          {terminal && <ActionButton title="New ramp transaction" onPress={() => setTransaction(undefined)} />}
         </>
       )}
       <ActionState action={action} />

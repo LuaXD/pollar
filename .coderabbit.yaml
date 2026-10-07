@@ -8,11 +8,9 @@ language: 'en-US'
 # Default tone. These libraries are consumed by external developers, so the
 # review is biased toward API stability, semver and breaking changes.
 tone_instructions: >-
-  You are reviewing a published TypeScript SDK (@pollar/*) consumed by external
-  developers. Prioritize public API stability, backward compatibility and semver
-  correctness. Flag any change to an exported symbol's signature, removed exports
-  or changed runtime behavior as a potential breaking change. Be concise and
-  actionable; skip nitpicks already enforced by ESLint or Prettier.
+  Review this published TypeScript SDK for API stability, backward compatibility
+  and semver. Flag exported signature, export or runtime changes that may break
+  consumers. Be concise; skip lint and formatting nitpicks.
 
 reviews:
   # "chill" keeps comments focused and low-noise. Switch to "assertive" if you

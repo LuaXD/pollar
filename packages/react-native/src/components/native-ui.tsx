@@ -142,12 +142,14 @@ export function Choice<T extends string>({
   options,
   value,
   onChange,
+  disabled = false,
 }: {
   label: string;
   options: readonly T[];
   labels?: Partial<Record<T, string>>;
   value: T;
   onChange: (value: T) => void;
+  disabled?: boolean;
 }) {
   const c = useNativeColors();
   return (
@@ -158,7 +160,8 @@ export function Choice<T extends string>({
           <Pressable
             key={option}
             accessibilityRole="radio"
-            accessibilityState={{ checked: option === value }}
+            accessibilityState={{ checked: option === value, disabled }}
+            disabled={disabled}
             accessibilityLabel={labels?.[option] ?? option}
             onPress={() => onChange(option)}
             style={{

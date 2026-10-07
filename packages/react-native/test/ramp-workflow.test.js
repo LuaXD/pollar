@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, waitFor } from '@testing-library/react-native';
+import { act, fireEvent, render, waitFor } from '@testing-library/react-native';
 import { RampWorkflow } from '../src/components/ramp-widget/RampWorkflow';
 jest.mock('react-native-qrcode-svg', () => 'QRCode');
 jest.mock('../src/context', () => ({ usePollar: () => ({ styles: {} }) }));
@@ -74,4 +74,23 @@ test('parallel and linkless verification render together; reconciliation hides a
     <RampWorkflow client={{}} snapshot={{ ...base, reconciliationRequired: true }} onChange={jest.fn()} copyText={jest.fn()} />,
   );
   expect(screen.queryByText('Authorize')).toBeNull();
+});
+
+test('a pending wallet request cannot repeat and its failure is announced', async () => {
+  let reject;
+  const pending = new Promise((_, fail) => {
+    reject = fail;
+  });
+  const client = { signRampAction: jest.fn(() => pending) };
+  const onChange = jest.fn();
+  const screen = render(<RampWorkflow client={client} snapshot={base} onChange={onChange} copyText={jest.fn()} />);
+  fireEvent.press(screen.getByText('Authorize'));
+  fireEvent.press(screen.getByText('Authorize'));
+  expect(client.signRampAction).toHaveBeenCalledTimes(1);
+  await act(async () => reject(new Error('Wallet rejected the request')));
+  const alert = screen.getByRole('alert');
+  expect(alert.props.accessibilityLiveRegion).toBe('assertive');
+  expect(screen.getByText('Wallet rejected the request')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Authorize' })).toBeEnabled();
+  expect(onChange).not.toHaveBeenCalled();
 });

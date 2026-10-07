@@ -655,6 +655,14 @@ client.pollRampTransaction(txId: string, opts?: { intervalMs?: number; timeoutMs
 Each also has a standalone `(api, ...)` export (`getRampsQuote`, `createOnRamp`, …) for callers holding a
 `PollarApiClient`.
 
+### Generic ramp workflows
+
+`getRampRoutes()` returns executable currencies/assets/chains/rails and typed provider capabilities. `amountExact` preserves requested decimal values alongside the legacy numeric amount. Quotes expose exact `terms` and an optional `route`; transactions expose saved actions, versions and verified milestones. Render `describeRampAction(snapshot)` and use `mergeRampSnapshot(previous, incoming)` to ignore stale responses. Both official widgets use these helpers.
+
+Call `continueRamp(txId, { actionId, transactionVersion, signedPayload?, fields? })` only after user interaction. `signRampAction(txId, snapshot)` refreshes the action, signs it through the matching handler and sends it to backend orchestration. Stellar XDR signing is included. Register another chain/encoding with `registerRampSigningHandler(chain, encoding, async action => signedPayload)`; handlers must use the authorized wallet/network and return a signed payload without broadcasting it. Polling and restoring state never invoke signing.
+
+Existing ramp methods remain compatible. Generic identifiers do not make unimplemented routes executable; the backend advertises only configured integrations with required evidence readers.
+
 ---
 
 ### Earn (yield vaults + lending)
@@ -1036,11 +1044,3 @@ import {
 ## License
 
 MIT
-
-### Generic ramp workflows
-
-`getRampRoutes()` returns executable currencies/assets/chains/rails and typed provider capabilities. `amountExact` preserves requested decimal values alongside the legacy numeric amount. Quotes expose exact `terms` and an optional `route`; transactions expose saved actions, versions and verified milestones. Render `describeRampAction(snapshot)` and use `mergeRampSnapshot(previous, incoming)` to ignore stale responses. Both official widgets use these helpers.
-
-Call `continueRamp(txId, { actionId, transactionVersion, signedPayload?, fields? })` only after user interaction. `signRampAction(txId, snapshot)` refreshes the action, signs it through the matching handler and sends it to backend orchestration. Stellar XDR signing is included. Register another chain/encoding with `registerRampSigningHandler(chain, encoding, async action => signedPayload)`; handlers must use the authorized wallet/network and return a signed payload without broadcasting it. Polling and restoring state never invoke signing.
-
-Existing ramp methods remain compatible. Generic identifiers do not make unimplemented routes executable; the backend advertises only configured integrations with required evidence readers.

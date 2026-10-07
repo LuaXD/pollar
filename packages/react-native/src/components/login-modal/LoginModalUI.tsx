@@ -32,6 +32,9 @@ function authStateToStatus(step: AuthState['step']): StateStatus {
     'verifying_email_code',
     'opening_oauth',
     'connecting_wallet',
+    'signing_wallet_challenge',
+    'creating_passkey',
+    'deploying_smart_account',
     'authenticating_wallet',
     'authenticating',
   ];

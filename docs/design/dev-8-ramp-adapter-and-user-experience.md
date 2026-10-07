@@ -7,7 +7,7 @@
 - **Foundations:** [DEV-6 proposed ADR](../adr/0001-ramp-api-and-lifecycle.md) and [DEV-7 lifecycle work](https://plane.pollar.dev/pollar-dev/browse/DEV-7/).
 - **Review:** backend, frontend, and operations walkthroughs pending; no reviewer feedback has been recorded.
 
-For concrete contracts and payloads, start with [proposed interfaces](#7-proposed-interfaces) and [worked examples](#8-worked-interface-and-payload-examples). The earlier sections explain the product behavior and ownership behind those contracts.
+For concrete contracts and payloads, start with [shared interfaces](#7-revised-shared-interfaces) and [worked examples](#8-worked-interface-and-payload-examples). The earlier sections explain the product behavior and ownership behind those contracts.
 
 ## 1. Purpose and scope
 

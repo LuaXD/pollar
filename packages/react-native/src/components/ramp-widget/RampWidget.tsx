@@ -1,6 +1,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { FeaturePanel } from '../FeaturePanel';
+import { FeatureModal } from '../FeatureModal';
 import { ActionButton } from '../native-ui';
 
 // Retained for existing consumers; completion now comes only from provider status.
@@ -20,5 +21,5 @@ export function RampWidgetTemplate({ onClose }: RampWidgetTemplateProps) {
   );
 }
 export function RampWidget({ onClose }: { onClose: () => void }) {
-  return <RampWidgetTemplate onClose={onClose} />;
+  return <FeatureModal feature="ramp" onClose={onClose} />;
 }
