@@ -1,6 +1,7 @@
 'use client';
 
-import type { RampQuote } from '@pollar/core';
+import type { RampQuote, RampQuoteKycRequirement } from '@pollar/core';
+import { lockedRouteCopy } from './ramp-kyc';
 
 interface RouteDisplayProps {
   quote: RampQuote;
@@ -55,6 +56,43 @@ export function RouteDisplay({ quote, busy = false, disabled = false, onSelect }
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+interface LockedRouteDisplayProps {
+  requirement: RampQuoteKycRequirement;
+  /** A route is starting, so verification cannot be opened meanwhile. */
+  disabled?: boolean;
+  onVerify: (requirement: RampQuoteKycRequirement) => void;
+}
+
+/** A route the backend did not quote because its corridor needs a KYC the user has not passed. */
+export function LockedRouteDisplay({ requirement, disabled = false, onVerify }: LockedRouteDisplayProps) {
+  const { message, action } = lockedRouteCopy(requirement);
+  return (
+    <div
+      className="pollar-ramp-route-card"
+      data-locked
+      data-kyc-status={requirement.status}
+      data-disabled={disabled || undefined}
+    >
+      <div className="pollar-ramp-route-left">
+        <span className="pollar-ramp-route-provider">{requirement.provider}</span>
+        <span className="pollar-ramp-route-meta">{message}</span>
+      </div>
+      {action && (
+        <div className="pollar-ramp-route-right">
+          <button
+            type="button"
+            className="pollar-btn-secondary pollar-ramp-route-verify"
+            disabled={disabled}
+            onClick={() => onVerify(requirement)}
+          >
+            {action}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

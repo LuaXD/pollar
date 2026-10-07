@@ -5,6 +5,7 @@ import type {
   RampDepositInstructions,
   RampDirection,
   RampQuote,
+  RampQuoteKycRequirement,
   RampsOfframpBody,
   RampsOnrampBody,
   RampTxStatus,
@@ -13,7 +14,7 @@ import { usePollar } from '../../context';
 import { PollarModalFooter } from '../commons';
 import { KycModal } from '../kyc-modal/KycModal';
 import { RouteDisplay } from './RouteDisplay';
-import { requiredRampKyc } from './ramp-kyc';
+import { lockedRouteCopy, requiredRampKyc } from './ramp-kyc';
 
 export type RampStep = 'input' | 'loading_quote' | 'select_route' | 'contact' | 'status' | 'error';
 
@@ -95,6 +96,8 @@ export interface RampWidgetTemplateProps {
   countries: RampCountry[];
   countriesLoading: boolean;
   quotes: RampQuote[];
+  /** Routes not quoted until the user passes the KYC their corridor requires. */
+  kycRequired: RampQuoteKycRequirement[];
   requiredFields: RampFieldSpec[];
   fieldValues: Record<string, string>;
   isLoading: boolean;
@@ -116,12 +119,47 @@ export interface RampWidgetTemplateProps {
   onFieldChange: (key: string, value: string) => void;
   onFindRoute: () => void;
   onSelectQuote: (quote: RampQuote) => void;
+  onVerifyRoute: (requirement: RampQuoteKycRequirement) => void;
   onContactContinue: () => void;
   onOpenUrl: (url: string) => void;
   onCompleteWithdraw: () => void;
   onBack: () => void;
   onRetry: () => void;
   onClose: () => void;
+}
+
+/** A route the backend did not quote because its corridor needs a KYC the user has not passed. */
+function LockedRoute({
+  requirement,
+  colors,
+  accentColor,
+  disabled,
+  onVerify,
+}: {
+  requirement: RampQuoteKycRequirement;
+  colors: { border: string; text: string; muted: string; inputBg: string };
+  accentColor: string;
+  disabled: boolean;
+  onVerify: (requirement: RampQuoteKycRequirement) => void;
+}) {
+  const { message, action } = lockedRouteCopy(requirement);
+  return (
+    <View style={[styles.lockedRoute, { borderColor: colors.border, backgroundColor: colors.inputBg }]}>
+      <View style={{ flex: 1, marginRight: 12 }}>
+        <Text style={{ color: colors.text, fontSize: 15, fontWeight: '700', marginBottom: 2 }}>{requirement.provider}</Text>
+        <Text style={{ color: colors.muted, fontSize: 12 }}>{message}</Text>
+      </View>
+      {action && (
+        <TouchableOpacity
+          style={[styles.lockedRouteBtn, { borderColor: accentColor, opacity: disabled ? 0.5 : 1 }]}
+          disabled={disabled}
+          onPress={() => onVerify(requirement)}
+        >
+          <Text style={{ color: accentColor, fontWeight: '600', fontSize: 13 }}>{action}</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 }
 
 export function RampWidgetTemplate({
@@ -135,6 +173,7 @@ export function RampWidgetTemplate({
   countries,
   countriesLoading,
   quotes,
+  kycRequired,
   requiredFields,
   fieldValues,
   isLoading,
@@ -155,6 +194,7 @@ export function RampWidgetTemplate({
   onFieldChange,
   onFindRoute,
   onSelectQuote,
+  onVerifyRoute,
   onContactContinue,
   onOpenUrl,
   onCompleteWithdraw,
@@ -275,6 +315,16 @@ export function RampWidgetTemplate({
             {!!noticeMsg && <Text style={[styles.note, { color: colors.text }]}>{noticeMsg}</Text>}
             {quotes.map((q) => (
               <RouteDisplay key={q.quoteId} quote={q} onSelect={(quote) => !isLoading && onSelectQuote(quote)} />
+            ))}
+            {kycRequired.map((r) => (
+              <LockedRoute
+                key={`${r.rampProviderId}:${r.corridorId}`}
+                requirement={r}
+                colors={colors}
+                accentColor={accentColor}
+                disabled={isLoading}
+                onVerify={onVerifyRoute}
+              />
             ))}
             {isLoading && <ActivityIndicator color={accentColor} style={{ marginVertical: 8 }} />}
             {errorLine}
@@ -400,6 +450,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
   const [countries, setCountries] = useState<RampCountry[]>([]);
   const [countriesLoading, setCountriesLoading] = useState(true);
   const [quotes, setQuotes] = useState<RampQuote[]>([]);
+  const [kycRequired, setKycRequired] = useState<RampQuoteKycRequirement[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<RampQuote | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [pendingKyc, setPendingKyc] = useState<{
@@ -503,6 +554,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
   function resetToInput({ keepMessage = false }: { keepMessage?: boolean } = {}) {
     setStep('input');
     setQuotes([]);
+    setKycRequired([]);
     setSelectedQuote(null);
     setFieldValues({});
     setTxId(null);
@@ -518,16 +570,21 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
     if (!keepMessage) setErrorMsg(null);
   }
 
-  async function fetchQuotes(): Promise<RampQuote[] | null> {
+  /**
+   * Quote the current input. A route held back by KYC still counts as an answer:
+   * it is shown locked, so "no providers" only means nothing came back at all.
+   */
+  async function fetchQuotes(): Promise<{ list: RampQuote[]; locked: RampQuoteKycRequirement[] } | null> {
     try {
       const result = await client.getRampsQuote({ country, amount: Number(amount), currency, direction });
       const list = result.quotes ?? [];
-      if (list.length === 0) {
+      const locked = result.kycRequired ?? [];
+      if (list.length === 0 && locked.length === 0) {
         setErrorMsg(`No ramp providers available for ${country} yet.`);
         setStep('error');
         return null;
       }
-      return list;
+      return { list, locked };
     } catch (e) {
       setErrorMsg(rampErrorMessage(e, 'Failed to fetch quotes.'));
       setStep('error');
@@ -540,11 +597,12 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
     setIsLoading(true);
     setErrorMsg(null);
     setNoticeMsg(null);
-    const list = await fetchQuotes();
+    const quoted = await fetchQuotes();
     if (!mounted.current) return;
     setIsLoading(false);
-    if (!list) return;
-    setQuotes(list);
+    if (!quoted) return;
+    setQuotes(quoted.list);
+    setKycRequired(quoted.locked);
     setStep('select_route');
   }
 
@@ -559,11 +617,12 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
     setIsLoading(true);
     setErrorMsg(null);
     setSelectedQuote(null);
-    const list = await fetchQuotes();
+    const quoted = await fetchQuotes();
     if (!mounted.current) return;
     setIsLoading(false);
-    if (!list) return;
-    setQuotes(list);
+    if (!quoted) return;
+    setQuotes(quoted.list);
+    setKycRequired(quoted.locked);
     setNoticeMsg('Your identity is verified. Prices may have changed, so choose a route to continue.');
     setStep('select_route');
   }
@@ -681,6 +740,16 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
     }
   }
 
+  /** Open KYC on the option and corridor a locked route names; approval re-quotes like the start gate does. */
+  function handleVerifyRoute(requirement: RampQuoteKycRequirement) {
+    const { rampProviderId, kycProviderId, corridorId } = requirement;
+    const attempt = { rampProviderId, kycProviderId, corridorId };
+    setErrorMsg(null);
+    setNoticeMsg(null);
+    kycAttempt.current = attempt;
+    setPendingKyc(attempt);
+  }
+
   function handleOpenUrl(url: string) {
     Linking.openURL(url).catch(() => setErrorMsg('Could not open the page. Please try again.'));
   }
@@ -724,6 +793,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
           countries={countries}
           countriesLoading={countriesLoading}
           quotes={quotes}
+          kycRequired={kycRequired}
           requiredFields={selectedQuote ? requiredFieldsOf(selectedQuote) : []}
           fieldValues={fieldValues}
           isLoading={isLoading}
@@ -747,6 +817,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
           onFieldChange={(key, value) => setFieldValues((v) => ({ ...v, [key]: value }))}
           onFindRoute={handleFindRoute}
           onSelectQuote={handleSelectQuote}
+          onVerifyRoute={handleVerifyRoute}
           onContactContinue={() => selectedQuote && void startRamp(selectedQuote)}
           onOpenUrl={handleOpenUrl}
           onCompleteWithdraw={handleCompleteWithdraw}
@@ -856,6 +927,21 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '700',
+  },
+  lockedRoute: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 8,
+  },
+  lockedRouteBtn: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   secondaryBtn: {
     width: '100%',

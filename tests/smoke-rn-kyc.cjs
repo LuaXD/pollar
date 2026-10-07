@@ -167,7 +167,64 @@ const option = { id: 'option-a', name: 'Didit', flow: 'iframe', levels: ['basic'
   assert.equal(starts[1].amount, 10);
   await unmount();
 
+  // Quote-time gate: a KYC-gated route arrives in `kycRequired`, not in `quotes`.
+  const locked = {
+    provider: 'Stereum',
+    rampProviderId: 'ramp-b',
+    corridorId: 'corridor-b',
+    kycProviderId: 'option-b',
+    status: 'none',
+  };
+  quoteCalls = 0;
+  starts.length = 0;
+  const resolved = [];
+  client = {
+    getRampCountries: async () => ({ countries: [{ code: 'BO', currency: 'BOB' }] }),
+    getRampsQuote: async () => {
+      quoteCalls++;
+      return quoteCalls === 1
+        ? { quotes: [], kycRequired: [locked] }
+        : { quotes: [{ quoteId: 'unlocked', provider: 'Stereum' }] };
+    },
+    createOnRamp: async (body) => {
+      starts.push(body);
+      return { txId: 'tx', provider: 'Stereum', status: 'pending_user_transfer_start' };
+    },
+    getRampTransaction: async () => ({ status: 'pending_user_transfer_start' }),
+    getKycProviders: async (country, corridorId) => {
+      assert.equal(country, 'BO');
+      assert.equal(corridorId, 'corridor-b');
+      return { providers: [{ ...option, id: 'option-b' }] };
+    },
+    resolveKyc: async (providerId, _level, _country, corridorId) => {
+      resolved.push({ providerId, corridorId });
+      return { alreadyApproved: true };
+    },
+  };
+  routes = [];
+  unmount = await render(React.createElement(RampWidget, { onClose() {} }));
+  await React.act(async () => inputs[inputs.length - 1].onChangeText('10'));
+  routes = [];
+  await press('Find routes');
+  assert.equal(quoteCalls, 1);
+  assert.equal(routes.length, 0);
+  assert.ok(has('Verify')); // the locked row, not the "no providers" error
+  assert.ok(!has('Try again'));
+  routes = [];
+  await press('Verify');
+  assert.deepEqual(resolved, [{ providerId: 'option-b', corridorId: 'corridor-b' }]);
+  assert.equal(quoteCalls, 2); // approval re-quotes the same input
+  assert.equal(starts.length, 0);
+  const unlocked = routes[routes.length - 1];
+  assert.equal(unlocked.quote.quoteId, 'unlocked');
+  await React.act(async () => unlocked.onSelect(unlocked.quote));
+  assert.equal(starts.length, 1);
+  assert.equal(starts[0].quoteId, 'unlocked');
+  assert.equal(starts[0].amount, 10);
+  await unmount();
+
   console.log('React Native: hosted KYC opens in the browser and checks on return; ramp gate re-quotes after approval');
+  console.log('React Native: a route locked by KYC shows instead of "no providers"; Verify opens its option and re-quotes');
   dom.window.close();
 })().catch((error) => {
   console.error(error);

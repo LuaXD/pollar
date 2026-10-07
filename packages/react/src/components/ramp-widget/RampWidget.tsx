@@ -5,6 +5,7 @@ import type {
   RampDepositInstructions,
   RampDirection,
   RampQuote,
+  RampQuoteKycRequirement,
   RampsOfframpBody,
   RampsOnrampBody,
   RampTxStatus,
@@ -144,6 +145,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
   const [countriesLoading, setCountriesLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [quotes, setQuotes] = useState<RampQuote[]>([]);
+  const [kycRequired, setKycRequired] = useState<RampQuoteKycRequirement[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<RampQuote | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [pendingKyc, setPendingKyc] = useState<{
@@ -270,6 +272,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
       if (step === 'select_route') {
         const result = await client.getRampsQuote({ country, amount: Number(amount), currency, direction });
         setQuotes(result.quotes ?? []);
+        setKycRequired(result.kycRequired ?? []);
       } else if (step === 'status' && txId) {
         const tx = await client.getRampTransaction(txId);
         setTxStatus(tx.status);
@@ -290,6 +293,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
   function resetToInput({ keepMessage = false }: { keepMessage?: boolean } = {}) {
     setStep('input');
     setQuotes([]);
+    setKycRequired([]);
     setSelectedQuote(null);
     // Clear the collected provider fields (name/email/etc.) so a retry re-shows
     // the 'contact' step. Otherwise a stale (possibly invalid) value keeps the
@@ -345,19 +349,30 @@ export function RampWidget({ onClose }: RampWidgetProps) {
     setStep('status');
   }
 
+  /**
+   * Quote the current input. A route held back by KYC still counts as an answer:
+   * it is shown locked, so "no providers" only means nothing came back at all.
+   */
+  async function loadQuotes(): Promise<boolean> {
+    const result = await client.getRampsQuote({ country, amount: Number(amount), currency, direction });
+    const list = result.quotes ?? [];
+    const locked = result.kycRequired ?? [];
+    if (list.length === 0 && locked.length === 0) {
+      setErrorMsg(`No ramp providers available for ${country} yet.`);
+      setStep('error');
+      return false;
+    }
+    setQuotes(list);
+    setKycRequired(locked);
+    return true;
+  }
+
   async function handleFindRoute() {
     setStep('loading_quote');
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const result = await client.getRampsQuote({ country, amount: Number(amount), currency, direction });
-      const list = result.quotes ?? [];
-      if (list.length === 0) {
-        setErrorMsg(`No ramp providers available for ${country} yet.`);
-        setStep('error');
-        return;
-      }
-      setQuotes(list);
+      if (!(await loadQuotes())) return;
       setStep('select_route');
     } catch (e) {
       setErrorMsg(rampErrorMessage(e, 'Failed to fetch quotes.'));
@@ -450,14 +465,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
     setErrorMsg(null);
     setSelectedQuote(null);
     try {
-      const result = await client.getRampsQuote({ country, amount: Number(amount), currency, direction });
-      const list = result.quotes ?? [];
-      if (list.length === 0) {
-        setErrorMsg(`No ramp providers available for ${country} yet.`);
-        setStep('error');
-        return;
-      }
-      setQuotes(list);
+      if (!(await loadQuotes())) return;
       setNoticeMsg('Your identity is verified. Prices may have changed, so choose a route to continue.');
       setStep('select_route');
     } catch (e) {
@@ -466,6 +474,16 @@ export function RampWidget({ onClose }: RampWidgetProps) {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  /** Open KYC on the option and corridor a locked route names; approval re-quotes like the start gate does. */
+  function handleVerifyRoute(requirement: RampQuoteKycRequirement) {
+    const { rampProviderId, kycProviderId, corridorId } = requirement;
+    const attempt = { rampProviderId, kycProviderId, corridorId };
+    setErrorMsg(null);
+    setNoticeMsg(null);
+    kycAttempt.current = attempt;
+    setPendingKyc(attempt);
   }
 
   function handleOpenKyc() {
@@ -551,6 +569,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
         countriesLoading={countriesLoading}
         refreshing={refreshing}
         quotes={quotes}
+        kycRequired={kycRequired}
         isLoading={isLoading}
         provider={provider}
         txStatus={txStatus}
@@ -580,6 +599,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
         onCountryChange={handleCountryChange}
         onFindRoute={handleFindRoute}
         onSelectQuote={handleSelectQuote}
+        onVerifyRoute={handleVerifyRoute}
         onContactContinue={handleContactContinue}
         onOpenKyc={handleOpenKyc}
         onOpenTos={handleOpenTos}

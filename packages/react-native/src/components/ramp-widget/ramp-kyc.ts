@@ -1,3 +1,6 @@
+import type { RampQuoteKycRequirement } from '@pollar/core';
+import { kycReviewMessage } from '../kyc-modal/kyc-messages';
+
 /** Open platform KYC only for the backend's explicit, scoped pre-transaction gate. */
 export function requiredRampKyc(error: unknown) {
   if (!error || typeof error !== 'object') return null;
@@ -18,4 +21,32 @@ export function requiredRampKyc(error: unknown) {
   )
     return null;
   return { rampProviderId, kycProviderId, corridorId };
+}
+
+/**
+ * What a route held back by KYC says, and the button it offers. A verification
+ * held for review (`reviewReason`) or rejected has nothing the user can do from
+ * here, so those rows carry no button.
+ */
+export function lockedRouteCopy(requirement: Pick<RampQuoteKycRequirement, 'status' | 'reviewReason'>): {
+  message: string;
+  action: string | null;
+} {
+  switch (requirement.status) {
+    case 'expired':
+      return { message: 'Your verification expired', action: 'Verify again' };
+    case 'pending':
+      if (!requirement.reviewReason) return { message: 'Verification in progress', action: 'Continue' };
+      return {
+        message:
+          requirement.reviewReason === 'DUPLICATE_DOCUMENT'
+            ? kycReviewMessage(requirement.reviewReason)
+            : 'Your verification is under review',
+        action: null,
+      };
+    case 'rejected':
+      return { message: 'Verification was not approved', action: null };
+    default:
+      return { message: 'Verify your identity to see this route', action: 'Verify' };
+  }
 }

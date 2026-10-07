@@ -6,10 +6,11 @@ import type {
   RampDirection,
   RampInstructionField,
   RampQuote,
+  RampQuoteKycRequirement,
   RampScannable,
   RampTxStatus,
 } from '@pollar/core';
-import { RouteDisplay } from './RouteDisplay';
+import { LockedRouteDisplay, RouteDisplay } from './RouteDisplay';
 import { CopyButton } from '../commons';
 import { buildModalCssVars, type ModalStyleOverrides } from '../modal-theme';
 
@@ -107,6 +108,8 @@ interface RampWidgetTemplateProps {
   countriesLoading: boolean;
   refreshing: boolean;
   quotes: RampQuote[];
+  /** Routes not quoted until the user passes the KYC their corridor requires. */
+  kycRequired: RampQuoteKycRequirement[];
   isLoading: boolean;
   // status step
   provider: string;
@@ -132,6 +135,7 @@ interface RampWidgetTemplateProps {
   onCountryChange: (v: string) => void;
   onFindRoute: () => void;
   onSelectQuote: (q: RampQuote) => void;
+  onVerifyRoute: (requirement: RampQuoteKycRequirement) => void;
   onContactContinue: () => void;
   onOpenKyc: () => void;
   onOpenTos: () => void;
@@ -194,6 +198,7 @@ export function RampWidgetTemplate({
   countriesLoading,
   refreshing,
   quotes,
+  kycRequired,
   isLoading,
   provider,
   txStatus,
@@ -214,6 +219,7 @@ export function RampWidgetTemplate({
   onCountryChange,
   onFindRoute,
   onSelectQuote,
+  onVerifyRoute,
   onContactContinue,
   onOpenKyc,
   onOpenTos,
@@ -400,6 +406,14 @@ export function RampWidgetTemplate({
                 busy={startingQuoteId != null && q.quoteId === startingQuoteId}
                 disabled={startingQuoteId != null && q.quoteId !== startingQuoteId}
                 onSelect={onSelectQuote}
+              />
+            ))}
+            {kycRequired.map((r) => (
+              <LockedRouteDisplay
+                key={`${r.rampProviderId}:${r.corridorId}`}
+                requirement={r}
+                disabled={startingQuoteId != null}
+                onVerify={onVerifyRoute}
               />
             ))}
           </div>
