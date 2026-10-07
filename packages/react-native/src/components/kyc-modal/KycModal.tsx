@@ -250,7 +250,13 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', corridorId,
     if (status === 'approved') onApproved?.();
   }
 
+  // One session request at a time: a second one for the same key would only wait on
+  // the first, and the auto-open path can fire alongside a tap.
+  const starting = useRef(false);
+
   async function handleSelectProvider(provider: KycProvider) {
+    if (starting.current) return;
+    starting.current = true;
     setSelectedProvider(provider);
     setError(null);
     setIsLoading(true);
@@ -276,6 +282,7 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', corridorId,
       setError(kycErrorMessage(e, 'start'));
       setStep('select_provider');
     } finally {
+      starting.current = false;
       if (mounted.current) setIsLoading(false);
     }
   }

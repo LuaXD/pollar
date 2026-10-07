@@ -1068,7 +1068,8 @@ export class PollarClient {
     // `x-pollar-timeout-ms` header was already stripped upstream, so key off the
     // URL here); otherwise a first-submit-after-login nonce retry would fall
     // back to the 10s default and could cut a submit that is actually working.
-    const isSubmit = /\/tx\/(submit|sign-and-send|build-sign-submit)(\?|$)/.test(originalRequest.url);
+    // KYC session creation waits on the vendor and gets the same budget.
+    const isSubmit = /\/(tx\/(submit|sign-and-send|build-sign-submit)|kyc\/start)(\?|$)/.test(originalRequest.url);
     return fetchWithTimeout(retried, isSubmit ? this._submitTimeoutMs : this._requestTimeoutMs);
   }
 

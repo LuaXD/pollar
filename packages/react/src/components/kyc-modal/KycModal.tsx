@@ -55,7 +55,13 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', onApproved,
     if (status === 'approved') onApproved?.();
   }
 
+  // One session request at a time: a second one for the same key would only wait on
+  // the first, and the auto-open path can fire alongside a click.
+  const starting = useRef(false);
+
   async function handleSelectProvider(provider: KycProvider) {
+    if (starting.current) return;
+    starting.current = true;
     setSelectedProvider(provider);
     setError(null);
     setIsLoading(true);
@@ -78,6 +84,7 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', onApproved,
       setError(kycErrorMessage(e, 'start'));
       setStep('select_provider');
     } finally {
+      starting.current = false;
       setIsLoading(false);
     }
   }

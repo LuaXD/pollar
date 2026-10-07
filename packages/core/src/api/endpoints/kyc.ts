@@ -47,8 +47,17 @@ export async function getKycProviders(
  * - flow=iframe/redirect: returns kycUrl to embed or redirect to
  * - flow=form: returns fields[] to render a custom form
  */
+/**
+ * Creating a session waits on the KYC vendor's own API, which can take well over the
+ * 10s default; only this call gets the longer budget.
+ */
+const KYC_START_TIMEOUT_MS = 30_000;
+
 export async function startKyc(api: PollarApiClient, body: KycStartBody): Promise<KycStartResponse> {
-  const { data, error } = await api.POST('/kyc/start', { body });
+  const { data, error } = await api.POST('/kyc/start', {
+    body,
+    headers: { 'x-pollar-timeout-ms': String(KYC_START_TIMEOUT_MS) },
+  });
   if (!data?.content || error) throw kycApiError(error, 'Failed to start KYC');
   return data.content;
 }
