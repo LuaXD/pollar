@@ -32,7 +32,10 @@ function describeDevice(s: SessionInfo): string {
 }
 
 function normalizeDeviceLabel(label: string): string {
-  const parts = label.split(/\s+[—–-]\s+|\s+·\s+/);
+  // Collapse the whitespace first so the split needs no unbounded `\s+` on both
+  // sides of the separator, which backtracks polynomially on a label with a long
+  // run of spaces (CodeQL js/polynomial-redos); the label comes from the API.
+  const parts = label.replace(/\s+/g, ' ').split(/ (?:[—–-]|·) /);
   if (parts.length === 2 && parts[1] !== undefined) return `${parts[0]} · ${parts[1].toLowerCase()}`;
   return label;
 }
