@@ -996,8 +996,13 @@ export type TxHistoryState =
 // --- KYC types ----------------------------------------------------------------
 
 export type KycLevel = 'basic' | 'intermediate' | 'enhanced';
-export type KycStatus = 'none' | 'pending' | 'approved' | 'rejected';
+export type KycStatus = 'none' | 'pending' | 'approved' | 'rejected' | 'expired';
+export type KycDecisionStatus = 'pending' | 'manual_review' | 'approved' | 'rejected' | 'expired';
 export type KycFlow = 'iframe' | 'form' | 'redirect';
+
+/** One read of GET /kyc/status. `status` is what gates the user; `decisionStatus`
+ *  and `reviewReason` say why a `pending` is pending (e.g. held for manual review). */
+export type KycStatusContent = pollarPaths['/kyc/status']['get']['responses'][200]['content']['application/json']['content'];
 
 export type KycProvider =
   pollarPaths['/kyc/providers']['get']['responses'][200]['content']['application/json']['content']['providers'][number];
@@ -1010,6 +1015,44 @@ export type RampsQuoteQuery = NonNullable<pollarPaths['/ramps/quote']['get']['pa
 export type RampQuote =
   pollarPaths['/ramps/quote']['get']['responses'][200]['content']['application/json']['content']['quotes'][number];
 export type RampsQuoteResponse = pollarPaths['/ramps/quote']['get']['responses'][200]['content']['application/json']['content'];
+/**
+ * A route left out of the quotes because a requirement step of its corridor is
+ * pending. For a `KYC` step, open KYC on `optionId` for `corridorId`; for `FORM`, the
+ * form `optionId`; for `REGISTRY_CHECK`, the registry option `optionId`; for
+ * `PROVIDER_REGISTRATION`, the registration of `corridorId`. Then quote again.
+ */
+export type RampQuoteRequirement = NonNullable<RampsQuoteResponse['requirementsRequired']>[number];
+
+/** A form asked by a FORM requirement step, with the user's previous answers. */
+export type RequirementForm =
+  pollarPaths['/requirements/forms/{formId}']['get']['responses'][200]['content']['application/json']['content'];
+export type RequirementFormField = RequirementForm['fields'][number];
+export type RequirementFormAnswers = RequirementForm['answers'];
+export type RequirementFormSubmitted =
+  pollarPaths['/requirements/forms/{formId}']['post']['responses'][200]['content']['application/json']['content'];
+/** The app's own KYC steps and the user's progress on them (GET /requirements). */
+export type AppRequirements = pollarPaths['/requirements']['get']['responses'][200]['content']['application/json']['content'];
+export type AppRequirementStep = NonNullable<AppRequirements['next']>;
+/**
+ * A REGISTRY_CHECK step (SEGIP): the data that will be checked, read from the user's
+ * verified identity, and the user's status on the option. Only the surname split and
+ * the CI complement can be changed.
+ */
+export type RegistryCheck =
+  pollarPaths['/requirements/registry/{optionId}']['get']['responses'][200]['content']['application/json']['content'];
+export type RegistryCheckPrefill = Extract<RegistryCheck['prefill'], { applies: true }>;
+export type RegistryCheckEdit = NonNullable<
+  pollarPaths['/requirements/registry/{optionId}']['post']['requestBody']
+>['content']['application/json'];
+export type RegistryCheckSubmitted =
+  pollarPaths['/requirements/registry/{optionId}']['post']['responses'][200]['content']['application/json']['content'];
+/** A PROVIDER_REGISTRATION step: whether the user is registered with the ramp, can be now, and what is shared. */
+export type ProviderRegistration =
+  pollarPaths['/requirements/registration/{corridorId}']['get']['responses'][200]['content']['application/json']['content'];
+export type ProviderRegistrationSubmitted =
+  pollarPaths['/requirements/registration/{corridorId}']['post']['responses'][200]['content']['application/json']['content'];
+/** One field the server refused, from a KYC_FORM_INVALID_ANSWERS error's `body.errors`. */
+export type RequirementFormAnswerError = { key: string; code: string };
 
 export type RampsOnrampBody = NonNullable<pollarPaths['/ramps/onramp']['post']['requestBody']>['content']['application/json'];
 export type RampsOnrampResponse =

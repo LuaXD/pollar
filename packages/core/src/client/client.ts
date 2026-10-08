@@ -2,7 +2,16 @@ import { createApiClient, fetchWithTimeout, PollarApiClient } from '../api/clien
 import { claimDistributionRule, listDistributionRules } from '../api/endpoints/distribution';
 import { getSwapConfig, getSwapTokens, quoteSwap } from '../api/endpoints/swap';
 import { buildEarnTx, getEarnOpportunities, getEarnPosition, getEarnProviders } from '../api/endpoints/earn';
-import { getKycProviders, getKycStatus, pollKycStatus, resolveKyc, startKyc } from '../api/endpoints/kyc';
+import { getKycProviders, getKycStatus, pollKycDecision, pollKycStatus, resolveKyc, startKyc } from '../api/endpoints/kyc';
+import {
+  getAppRequirements,
+  getProviderRegistration,
+  getRegistryCheck,
+  getRequirementForm,
+  submitProviderRegistration,
+  submitRegistryCheck,
+  submitRequirementForm,
+} from '../api/endpoints/requirements';
 import {
   completeWithdraw,
   createOffRamp,
@@ -51,6 +60,16 @@ import {
   KycStartBody,
   KycStartResponse,
   KycStatus,
+  KycStatusContent,
+  AppRequirements,
+  RequirementForm,
+  RequirementFormAnswers,
+  RequirementFormSubmitted,
+  RegistryCheck,
+  RegistryCheckEdit,
+  RegistryCheckSubmitted,
+  ProviderRegistration,
+  ProviderRegistrationSubmitted,
   NetworkState,
   PasskeyCeremony,
   PasskeySigner,
@@ -1171,7 +1190,8 @@ export class PollarClient {
     // `x-pollar-timeout-ms` header was already stripped upstream, so key off the
     // URL here); otherwise a first-submit-after-login nonce retry would fall
     // back to the 10s default and could cut a submit that is actually working.
-    const isSubmit = /\/tx\/(submit|sign-and-send|build-sign-submit)(\?|$)/.test(originalRequest.url);
+    // KYC session creation waits on the vendor and gets the same budget.
+    const isSubmit = /\/(tx\/(submit|sign-and-send|build-sign-submit)|kyc\/start)(\?|$)/.test(originalRequest.url);
     return fetchWithTimeout(retried, isSubmit ? this._submitTimeoutMs : this._requestTimeoutMs);
   }
 
@@ -3612,25 +3632,65 @@ export class PollarClient {
     }
   }
 
-  // --- KYC ------------------------------------------------------------------
+  // --- Requirement steps ------------------------------------------------------
 
-  getKycStatus(providerId?: string) {
-    return getKycStatus(this._api, providerId);
+  getAppRequirements(): Promise<AppRequirements> {
+    return getAppRequirements(this._api);
   }
 
-  getKycProviders(country: string) {
-    return getKycProviders(this._api, country);
+  getRequirementForm(formId: string): Promise<RequirementForm> {
+    return getRequirementForm(this._api, formId);
+  }
+
+  submitRequirementForm(formId: string, answers: RequirementFormAnswers): Promise<RequirementFormSubmitted> {
+    return submitRequirementForm(this._api, formId, answers);
+  }
+
+  getRegistryCheck(optionId: string): Promise<RegistryCheck> {
+    return getRegistryCheck(this._api, optionId);
+  }
+
+  submitRegistryCheck(optionId: string, edit: RegistryCheckEdit): Promise<RegistryCheckSubmitted> {
+    return submitRegistryCheck(this._api, optionId, edit);
+  }
+
+  getProviderRegistration(corridorId: string): Promise<ProviderRegistration> {
+    return getProviderRegistration(this._api, corridorId);
+  }
+
+  submitProviderRegistration(corridorId: string): Promise<ProviderRegistrationSubmitted> {
+    return submitProviderRegistration(this._api, corridorId);
+  }
+
+  // --- KYC ------------------------------------------------------------------
+
+  getKycStatus(providerId?: string, corridorId?: string) {
+    return getKycStatus(this._api, providerId, corridorId);
+  }
+
+  getKycProviders(country: string, corridorId?: string) {
+    return getKycProviders(this._api, country, corridorId);
   }
 
   startKyc(body: KycStartBody): Promise<KycStartResponse> {
     return startKyc(this._api, body);
   }
 
-  resolveKyc(providerId: string, level?: KycLevel) {
-    return resolveKyc(this._api, providerId, level);
+  resolveKyc(providerId: string, level?: KycLevel, country?: string, corridorId?: string, idempotencyKey?: string) {
+    return resolveKyc(this._api, providerId, level, country, corridorId, idempotencyKey);
   }
 
-  pollKycStatus(providerId: string, opts?: { intervalMs?: number; timeoutMs?: number }): Promise<KycStatus> {
+  pollKycDecision(
+    providerId: string,
+    opts?: { intervalMs?: number; timeoutMs?: number; corridorId?: string },
+  ): Promise<KycStatusContent> {
+    return pollKycDecision(this._api, providerId, opts);
+  }
+
+  pollKycStatus(
+    providerId: string,
+    opts?: { intervalMs?: number; timeoutMs?: number; corridorId?: string },
+  ): Promise<KycStatus> {
     return pollKycStatus(this._api, providerId, opts);
   }
 

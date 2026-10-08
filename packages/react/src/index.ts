@@ -30,6 +30,9 @@ export type { UseChainsResult } from './useChains';
 
 // --- Modals -------------------------------------------------------------------
 export { KycModal } from './components/kyc-modal/KycModal';
+export { RequirementFormModal } from './components/requirement-form-modal/RequirementFormModal';
+export { RegistryCheckModal } from './components/registry-check-modal/RegistryCheckModal';
+export { ProviderRegistrationModal } from './components/provider-registration-modal/ProviderRegistrationModal';
 export { KycStatus } from './components/kyc-modal/KycStatus';
 export { RampWidget } from './components/ramp-widget/RampWidget';
 export { RouteDisplay } from './components/ramp-widget/RouteDisplay';

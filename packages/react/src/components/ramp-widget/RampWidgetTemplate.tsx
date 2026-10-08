@@ -6,10 +6,11 @@ import type {
   RampDirection,
   RampInstructionField,
   RampQuote,
+  RampQuoteRequirement,
   RampScannable,
   RampTxStatus,
 } from '@pollar/core';
-import { RouteDisplay } from './RouteDisplay';
+import { LockedRouteDisplay, RouteDisplay } from './RouteDisplay';
 import { CopyButton } from '../commons';
 import { buildModalCssVars, type ModalStyleOverrides } from '../modal-theme';
 
@@ -107,6 +108,8 @@ interface RampWidgetTemplateProps {
   countriesLoading: boolean;
   refreshing: boolean;
   quotes: RampQuote[];
+  /** Routes not quoted until the user completes the requirement step their corridor names (KYC, form, registry check or provider registration). */
+  kycRequired: RampQuoteRequirement[];
   isLoading: boolean;
   // status step
   provider: string;
@@ -131,12 +134,15 @@ interface RampWidgetTemplateProps {
   canComplete: boolean;
   completing: boolean;
   errorMsg: string | null;
+  /** Neutral guidance on the route list, e.g. after identity verification sent the user back to it. */
+  noticeMsg?: string | null;
   onDirectionChange: (d: RampDirection) => void;
   onAmountChange: (v: string) => void;
   onFieldChange: (key: string, value: string) => void;
   onCountryChange: (v: string) => void;
   onFindRoute: () => void;
   onSelectQuote: (q: RampQuote) => void;
+  onVerifyRoute: (requirement: RampQuoteRequirement) => void;
   onContactContinue: () => void;
   onOpenKyc: () => void;
   onOpenTos: () => void;
@@ -199,6 +205,7 @@ export function RampWidgetTemplate({
   countriesLoading,
   refreshing,
   quotes,
+  kycRequired,
   isLoading,
   provider,
   txStatus,
@@ -213,12 +220,14 @@ export function RampWidgetTemplate({
   canComplete,
   completing,
   errorMsg,
+  noticeMsg,
   onDirectionChange,
   onAmountChange,
   onFieldChange,
   onCountryChange,
   onFindRoute,
   onSelectQuote,
+  onVerifyRoute,
   onContactContinue,
   onOpenKyc,
   onOpenTos,
@@ -396,6 +405,7 @@ export function RampWidgetTemplate({
 
       {step === 'select_route' && (
         <>
+          {noticeMsg && <p className="pollar-ramp-payment-note">{noticeMsg}</p>}
           <div className="pollar-ramp-route-list">
             {quotes.map((q, i) => (
               <RouteDisplay
@@ -404,6 +414,14 @@ export function RampWidgetTemplate({
                 busy={startingQuoteId != null && q.quoteId === startingQuoteId}
                 disabled={startingQuoteId != null && q.quoteId !== startingQuoteId}
                 onSelect={onSelectQuote}
+              />
+            ))}
+            {kycRequired.map((r) => (
+              <LockedRouteDisplay
+                key={`${r.rampProviderId}:${r.corridorId}`}
+                requirement={r}
+                disabled={startingQuoteId != null}
+                onVerify={onVerifyRoute}
               />
             ))}
           </div>

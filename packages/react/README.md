@@ -344,7 +344,10 @@ already wired inside `<PollarProvider>` — and most are exported in case you wa
 | `<DistributionRulesModal>` | Manage the wallet's distribution rules                                                                                                                                                                                                                                                                                                                                                   |
 | `<SessionsModal>`          | Lists every active refresh-token family for the current user with device metadata, marks the local session, per-row revoke, and a "Sign out everywhere" button                                                                                                                                                                                                                           |
 | `<KycModal>`               | Identity verification flow - provider selection + status polling _(UI preview - backend coming soon)_                                                                                                                                                                                                                                                                                    |
-| `<RampWidget>`             | Buy/sell crypto via SEP-24 - direction tabs, route comparison, payment instructions (wired to `client.createOnRamp` / `client.createOffRamp`)                                                                                                                                                                                                                                            |
+| `<RampWidget>`             | Buy/sell crypto via SEP-24 - direction tabs, route comparison, payment instructions (wired to `client.createOnRamp` / `client.createOffRamp`). A route whose corridor has a pending requirement step is listed locked, and the widget opens that step's modal (below) and re-quotes once it is done                                                                                       |
+| `<RequirementFormModal>`   | One `FORM` requirement step of a ramp route: renders the form the backend names (`formId`), prefilled with the user's previous answers, and stores the answers encrypted. `<RampWidget>` opens it itself; exported for consumers who build their own route list from `requirementsRequired`                                                                                              |
+| `<RegistryCheckModal>`     | One `REGISTRY_CHECK` step (SEGIP through Stereum, `optionId`): the verified identity prefilled and read-only except the surname split and the CI complement; a check the registry did not confirm shows the review state with nothing to retry                                                                                                                                           |
+| `<ProviderRegistrationModal>` | One `PROVIDER_REGISTRATION` step (`corridorId`): lists what the ramp provider receives and registers the user with it on consent; an already registered user is passed through                                                                                                                                                                                                       |
 
 ```tsx
 import { WalletButton } from '@pollar/react';
@@ -359,8 +362,8 @@ export function Header() {
 ### Template components
 
 Almost every modal ships a pure presentational "template" companion — same name with a `Template` suffix. Use these when
-you want to swap the chrome but keep the data wiring from `usePollar()`. (`<EarnModal>` is the exception: it has no
-template yet.)
+you want to swap the chrome but keep the data wiring from `usePollar()`. (`<EarnModal>`, `<RequirementFormModal>`,
+`<RegistryCheckModal>` and `<ProviderRegistrationModal>` are the exceptions: they have no template yet.)
 
 > The wallet-balance, enabled-assets, send and receive templates each require `chains`, `selectedChain` and
 > `onSelectChain`. Get `chains` (in the app's configured order) from `useChains()`, keep `selectedChain` in your own

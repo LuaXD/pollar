@@ -14,7 +14,7 @@ import {
 } from '@pollar/core';
 import React, { createContext, ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { ModalErrorBoundary } from './components/commons';
-import { KycModal } from './components/kyc-modal/KycModal';
+import { AppKycFlow } from './components/kyc-modal/AppKycFlow';
 import { LoginModal } from './components/login-modal/LoginModal';
 import { RampWidget } from './components/ramp-widget/RampWidget';
 import { TransactionModal } from './components/transaction-modal/TransactionModal';
@@ -205,7 +205,7 @@ export function PollarProvider({ config, styles: propStyles, adapters, children 
             )}
             {kycModalOpen && (
                 <ModalErrorBoundary onClose={() => setKycModalOpen(false)}>
-                    <KycModal
+                    <AppKycFlow
                         onClose={() => setKycModalOpen(false)}
                         {...(kycModalOptions.country !== undefined && { country: kycModalOptions.country })}
                         {...(kycModalOptions.level !== undefined && { level: kycModalOptions.level })}

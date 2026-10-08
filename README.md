@@ -156,7 +156,10 @@ drop-in authentication in React applications.
 - `<SwapModal>` - multi-venue swap UI over the core swap API, with a route selector across venues and paste-a-custom-token
 - `<EarnModal>` - deposit/withdraw across DeFindex vaults and Blend pools, with live APY, wallet balance, over-spend
   guards, and auto-trustline on deposit; `usePollar()` mirrors the earn methods
-- `<RampWidget>` - SEP-24 buy/sell flow wired to the core ramps endpoints (external wallets sign the pending XDR inline)
+- `<RampWidget>` - SEP-24 buy/sell flow wired to the core ramps endpoints (external wallets sign the pending XDR inline);
+  a route with a pending requirement step is listed locked and the widget opens that step
+- `<RequirementFormModal>`, `<RegistryCheckModal>`, `<ProviderRegistrationModal>` - the FORM, REGISTRY_CHECK (SEGIP) and
+  PROVIDER_REGISTRATION steps a ramp route can require, as standalone modals for consumers who build their own route list
 - `<KycModal>` - identity verification flow with provider selection and status polling _(UI preview - backend coming
   soon)_
 - `<TxHistoryModal>` — paginated multichain transaction history viewer with auto-fetch on open, a network picker that

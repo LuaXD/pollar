@@ -1041,6 +1041,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/requirements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the app's own KYC steps
+         * @description The steps the app configured for its own KYC (every one required, in order, each with equivalent options) and where the user stands: each step's completion and the first pending one. Nothing is blocked on it; the app decides. A KYC step is completed through the /kyc routes with `optionId`, a FORM step through /requirements/forms/{formId}.
+         */
+        get: operations["getRequirements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/requirements/registry/{optionId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a registry check */
+        get: operations["getRequirementsRegistryByOptionId"];
+        put?: never;
+        /** Submit a registry check */
+        post: operations["postRequirementsRegistryByOptionId"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/requirements/registration/{corridorId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get a provider registration */
+        get: operations["getRequirementsRegistrationByCorridorId"];
+        put?: never;
+        /** Register with the ramp provider */
+        post: operations["postRequirementsRegistrationByCorridorId"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/requirements/forms/{formId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a requirement form
+         * @description The form a FORM step asks for (the `optionId` of a pending step in the quote's `requirementsRequired`): its current fields, the user's previous answers to prefill, and the required keys still open.
+         */
+        get: operations["getRequirementsFormsByFormId"];
+        put?: never;
+        /**
+         * Submit a requirement form
+         * @description Send the full set of answers. They are checked against the current version and stored encrypted; a 422 `KYC_FORM_INVALID_ANSWERS` lists every field that is missing or invalid. Quote again afterwards.
+         */
+        post: operations["postRequirementsFormsByFormId"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/kyc/status": {
         parameters: {
             query?: never;
@@ -6666,9 +6746,829 @@ export interface operations {
             };
         };
     };
+    getRequirements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The app's steps and the user's progress */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_REQUIREMENTS";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            steps: {
+                                position: number;
+                                /** @enum {string} */
+                                type: "KYC" | "FORM" | "REGISTRY_CHECK" | "PROVIDER_REGISTRATION";
+                                optionIds: string[];
+                                completed: boolean;
+                            }[];
+                            next: {
+                                position: number;
+                                completed: number;
+                                total: number;
+                                /** @enum {string} */
+                                type: "KYC" | "FORM" | "REGISTRY_CHECK" | "PROVIDER_REGISTRATION";
+                                optionId: string;
+                                /** @enum {string} */
+                                status: "none" | "pending" | "rejected" | "expired";
+                                reviewReason?: string;
+                            } | null;
+                            completed: number;
+                            total: number;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+        };
+    };
+    getRequirementsRegistryByOptionId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                optionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The data to confirm and the user status */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_REQUIREMENT_REGISTRY";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            optionId: string;
+                            /** @enum {string} */
+                            status: "none" | "pending" | "approved";
+                            reviewReason?: string;
+                            prefill: {
+                                /** @constant */
+                                applies: false;
+                            } | {
+                                /** @constant */
+                                applies: true;
+                                givenNames: string;
+                                surname1: string;
+                                surname2?: string;
+                                birthdate: string;
+                                /** @enum {string} */
+                                dniType: "CI" | "CE";
+                                documentNumber: string;
+                                complementNumber?: string;
+                            };
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+        };
+    };
+    postRequirementsRegistryByOptionId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                optionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    surname1: string;
+                    surname2?: string;
+                    complementNumber?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The check was recorded */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_REQUIREMENT_REGISTRY_SUBMITTED";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            optionId: string;
+                            /** @enum {string} */
+                            status: "none" | "pending" | "approved";
+                            reviewReason?: string;
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+        };
+    };
+    getRequirementsRegistrationByCorridorId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                corridorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Registration status and what it shares */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_REQUIREMENT_REGISTRATION";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            corridorId: string;
+                            rampProviderId: string;
+                            /** @enum {string} */
+                            status: "none" | "registered";
+                            ready: boolean;
+                            fields: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+        };
+    };
+    postRequirementsRegistrationByCorridorId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                corridorId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Registered */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_REQUIREMENT_REGISTRATION_SUBMITTED";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            corridorId: string;
+                            rampProviderId: string;
+                            /** @enum {string} */
+                            status: "none" | "registered";
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+        };
+    };
+    getRequirementsFormsByFormId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                formId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The form and where the user stands on it */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_REQUIREMENT_FORM";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            formId: string;
+                            version: number;
+                            name: string;
+                            description: string | null;
+                            fields: {
+                                key: string;
+                                /** @enum {string} */
+                                type: "text" | "textarea" | "number" | "date" | "select" | "multiselect" | "checkbox" | "email" | "phone";
+                                label: {
+                                    en: string;
+                                    es: string;
+                                };
+                                help?: {
+                                    en?: string;
+                                    es?: string;
+                                };
+                                /** @default false */
+                                required: boolean;
+                                options?: {
+                                    value: string;
+                                    label: {
+                                        en: string;
+                                        es: string;
+                                    };
+                                }[];
+                                validation?: {
+                                    min?: number;
+                                    max?: number;
+                                    maxLength?: number;
+                                    pattern?: string;
+                                };
+                            }[];
+                            answers: {
+                                [key: string]: string | number | boolean | string[];
+                            };
+                            missing: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+        };
+    };
+    postRequirementsFormsByFormId: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                formId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    answers: {
+                        [key: string]: string | number | boolean | string[];
+                    };
+                };
+            };
+        };
+        responses: {
+            /** @description Answers stored */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_REQUIREMENT_FORM_SUBMITTED";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            formId: string;
+                            version: number;
+                            missing: string[];
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+        };
+    };
     getKycStatus: {
         parameters: {
             query?: {
+                corridorId?: string;
                 providerId?: string;
             };
             header?: never;
@@ -6690,11 +7590,22 @@ export interface operations {
                         success: true;
                         content: {
                             /** @enum {string} */
-                            status: "none" | "pending" | "approved" | "rejected";
+                            status: "none" | "pending" | "approved" | "rejected" | "expired";
                             /** @enum {string} */
                             level?: "basic" | "intermediate" | "enhanced";
-                            providerId: string;
+                            providerId?: string;
+                            /** @enum {string} */
+                            decisionStatus?: "pending" | "manual_review" | "approved" | "rejected" | "expired";
                             expiresAt?: string;
+                            /** @description Why an approval is held for manual review, e.g. DUPLICATE_DOCUMENT. */
+                            reviewReason?: string;
+                            /** @description Without providerId or corridorId, for an app with its own KYC steps: the first pending step. `status` is `approved` only once every step is complete. */
+                            pendingStep?: {
+                                position: number;
+                                /** @enum {string} */
+                                type: "KYC" | "FORM" | "REGISTRY_CHECK" | "PROVIDER_REGISTRATION";
+                                optionId: string;
+                            };
                         };
                     };
                 };
@@ -6749,6 +7660,7 @@ export interface operations {
     getKycProviders: {
         parameters: {
             query: {
+                corridorId?: string;
                 country: string;
             };
             header?: never;
@@ -6822,9 +7734,14 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    corridorId?: string;
                     providerId: string;
+                    /** ISO 3166-1 alpha-2 country code. */
+                    country?: string;
+                    /** @description Reuse on retries so the same vendor session comes back instead of a new one. */
+                    idempotencyKey?: string;
                     /** @enum {string} */
-                    level: "basic" | "intermediate" | "enhanced";
+                    level?: "basic" | "intermediate" | "enhanced";
                 };
             };
         };
@@ -7009,9 +7926,25 @@ export interface operations {
                                 cryptoAmount: number | null;
                                 availableAmount: number | null;
                             }[];
+                            /** @description Providers that serve this route but failed to quote it just now, with the ErrorCode of the failure. Returned on /v2 only. */
                             unavailable?: {
                                 provider: string;
                                 code: string;
+                            }[];
+                            /** @description Routes not quoted because their corridor has a requirement step the user has not completed. Every step is required, in order; this is the first pending one (`position`, with `completed` of `total` done). For a `KYC` step, complete `optionId` with this `corridorId` (the /kyc routes); for a `FORM` step, answer form `optionId` (/requirements/forms). Then quote again. `status`: none (never started), pending (in progress or held for review, see `reviewReason`), rejected, expired. Returned on /v2 only. */
+                            requirementsRequired?: {
+                                provider: string;
+                                rampProviderId: string;
+                                corridorId: string;
+                                position: number;
+                                completed: number;
+                                total: number;
+                                /** @enum {string} */
+                                type: "KYC" | "FORM" | "REGISTRY_CHECK" | "PROVIDER_REGISTRATION";
+                                optionId: string;
+                                /** @enum {string} */
+                                status: "none" | "pending" | "rejected" | "expired";
+                                reviewReason?: string;
                             }[];
                         };
                     };

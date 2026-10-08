@@ -140,6 +140,29 @@ The modal handles all login providers, loading states, and error feedback out of
 
 ---
 
+### Requirement step modals
+
+`<RampWidget>` lists a route whose corridor has a pending requirement step as locked and opens that step itself. The
+same modals are exported for apps that build their own route list from the quote's `requirementsRequired`:
+
+| Component                     | Step                    | Props                                                        |
+| ----------------------------- | ----------------------- | ------------------------------------------------------------ |
+| `<RequirementFormModal>`      | `FORM`                  | `formId`, `progress?`, `onClose`, `onSubmitted`              |
+| `<RegistryCheckModal>`        | `REGISTRY_CHECK` (SEGIP) | `optionId`, `progress?`, `onClose`, `onApproved`            |
+| `<ProviderRegistrationModal>` | `PROVIDER_REGISTRATION` | `corridorId`, `progress?`, `onClose`, `onRegistered`         |
+
+`progress` is `{ position, total }` from the quote, shown as "Step n of total". The form modal prefills the user's
+previous answers; the registry modal prefills the verified identity and lets the user edit only the surname split and the
+CI complement; the registration modal lists what the provider receives and sends it on consent.
+
+```tsx
+import { RegistryCheckModal } from '@pollar/react-native';
+
+<RegistryCheckModal optionId={step.optionId} progress={{ position: 2, total: 4 }} onClose={close} onApproved={requote} />
+```
+
+---
+
 ## Styles
 
 No CSS import is needed. All components use React Native `StyleSheet` and are styled natively. Appearance is controlled via the `styles` prop on `<PollarProvider>`.
