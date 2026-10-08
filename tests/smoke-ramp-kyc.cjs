@@ -26,7 +26,10 @@ const error = {
 };
 // The KYC-only body (v1) names the option as kycProviderId.
 // Spread: the helper runs in its own vm realm, so its objects have another Object prototype.
-assert.deepEqual({ ...requiredRampKyc(error) }, { rampProviderId: 'ramp-a', corridorId: 'corridor-a', type: 'KYC', optionId: 'option-a' });
+assert.deepEqual(
+  { ...requiredRampKyc(error) },
+  { rampProviderId: 'ramp-a', corridorId: 'corridor-a', type: 'KYC', optionId: 'option-a' },
+);
 // v2 names the pending step and its option; a KYC step still carries kycProviderId for older readers.
 const v2 = (requirementType, optionId) => ({
   code: 'SDK_RAMPS_KYC_REQUIRED',
@@ -39,12 +42,15 @@ const v2 = (requirementType, optionId) => ({
   },
 });
 for (const type of ['KYC', 'FORM', 'REGISTRY_CHECK', 'PROVIDER_REGISTRATION']) {
-  assert.deepEqual({ ...requiredRampKyc(v2(type, `${type}-id`)) }, {
-    rampProviderId: 'ramp-a',
-    corridorId: 'corridor-a',
-    type,
-    optionId: `${type}-id`,
-  });
+  assert.deepEqual(
+    { ...requiredRampKyc(v2(type, `${type}-id`)) },
+    {
+      rampProviderId: 'ramp-a',
+      corridorId: 'corridor-a',
+      type,
+      optionId: `${type}-id`,
+    },
+  );
 }
 for (const invalid of [
   null,
@@ -259,7 +265,9 @@ async function exerciseLockedRoute(direction) {
     getRampCountries: async () => ({ countries: [{ code: 'BO', currency: 'BOB' }] }),
     getRampsQuote: async () => {
       quoteCalls++;
-      return quoteCalls === 1 ? { quotes: [], requirementsRequired: [locked] } : { quotes: [unlocked], requirementsRequired: [] };
+      return quoteCalls === 1
+        ? { quotes: [], requirementsRequired: [locked] }
+        : { quotes: [unlocked], requirementsRequired: [] };
     },
     createOnRamp: async () => {
       attempts++;
@@ -327,7 +335,9 @@ async function exerciseStepRoute(type, outcome) {
     getRampCountries: async () => ({ countries: [{ code: 'BO', currency: 'BOB' }] }),
     getRampsQuote: async () => {
       quoteCalls++;
-      return quoteCalls === 1 ? { quotes: [], requirementsRequired: [locked] } : { quotes: [unlocked], requirementsRequired: [] };
+      return quoteCalls === 1
+        ? { quotes: [], requirementsRequired: [locked] }
+        : { quotes: [unlocked], requirementsRequired: [] };
     },
     createOnRamp: async () => {
       throw new Error('must not start before the step is complete');

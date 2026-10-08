@@ -50,7 +50,12 @@ function Choice({
       accessibilityRole="checkbox"
       accessibilityState={{ checked, disabled }}
     >
-      <View style={[styles.box, { borderColor: checked ? accentColor : colors.border, backgroundColor: checked ? accentColor : 'transparent' }]}>
+      <View
+        style={[
+          styles.box,
+          { borderColor: checked ? accentColor : colors.border, backgroundColor: checked ? accentColor : 'transparent' },
+        ]}
+      >
         {checked && <Text style={styles.boxMark}>✓</Text>}
       </View>
       <Text style={{ color: colors.text, fontSize: 14, flex: 1 }}>{label}</Text>
@@ -117,7 +122,13 @@ function FieldInput({
       placeholderTextColor={colors.muted}
       autoCapitalize={field.type === 'email' ? 'none' : 'sentences'}
       keyboardType={
-        field.type === 'number' ? 'decimal-pad' : field.type === 'email' ? 'email-address' : field.type === 'phone' ? 'phone-pad' : 'default'
+        field.type === 'number'
+          ? 'decimal-pad'
+          : field.type === 'email'
+            ? 'email-address'
+            : field.type === 'phone'
+              ? 'phone-pad'
+              : 'default'
       }
       onChangeText={onChange}
     />
@@ -202,7 +213,11 @@ export function RequirementFormModal({ formId, progress, onClose, onSubmitted }:
               </Text>
             )}
           </View>
-          <TouchableOpacity style={[styles.closeBtn, { borderColor: colors.border }]} onPress={onClose} accessibilityLabel={copy.close}>
+          <TouchableOpacity
+            style={[styles.closeBtn, { borderColor: colors.border }]}
+            onPress={onClose}
+            accessibilityLabel={copy.close}
+          >
             <Text style={{ color: colors.muted, fontSize: 16 }}>✕</Text>
           </TouchableOpacity>
 
@@ -223,7 +238,9 @@ export function RequirementFormModal({ formId, progress, onClose, onSubmitted }:
 
           {form && (
             <ScrollView style={{ maxHeight: 420 }} keyboardShouldPersistTaps="handled">
-              {!!form.description && <Text style={{ color: colors.muted, fontSize: 14, marginBottom: 12 }}>{form.description}</Text>}
+              {!!form.description && (
+                <Text style={{ color: colors.muted, fontSize: 14, marginBottom: 12 }}>{form.description}</Text>
+              )}
               {form.fields.map((field) => {
                 const fieldError = fieldErrors[field.key];
                 const help = localized(field.help, language);
@@ -274,7 +291,11 @@ export function RequirementFormModal({ formId, progress, onClose, onSubmitted }:
               >
                 <Text style={styles.primaryBtnText}>{submitting ? copy.submitting : copy.submit}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.secondaryBtn, { borderColor: colors.border }]} onPress={onClose} disabled={submitting}>
+              <TouchableOpacity
+                style={[styles.secondaryBtn, { borderColor: colors.border }]}
+                onPress={onClose}
+                disabled={submitting}
+              >
                 <Text style={{ color: colors.text, fontWeight: '600' }}>{copy.close}</Text>
               </TouchableOpacity>
             </View>

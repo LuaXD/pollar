@@ -132,7 +132,11 @@ export function RegistryCheckModal({ optionId, progress, onClose, onApproved }: 
               </Text>
             )}
           </View>
-          <TouchableOpacity style={[styles.closeBtn, { borderColor: colors.border }]} onPress={onClose} accessibilityLabel={copy.close}>
+          <TouchableOpacity
+            style={[styles.closeBtn, { borderColor: colors.border }]}
+            onPress={onClose}
+            accessibilityLabel={copy.close}
+          >
             <Text style={{ color: colors.muted, fontSize: 16 }}>✕</Text>
           </TouchableOpacity>
 
@@ -152,7 +156,9 @@ export function RegistryCheckModal({ optionId, progress, onClose, onApproved }: 
 
           {check && (review || !prefill) && (
             <View style={[styles.notice, { borderColor: colors.border, borderLeftColor: accentColor }]}>
-              <Text style={{ color: colors.text, fontSize: 14, lineHeight: 20 }}>{review ? copy.review : copy.notApplicable}</Text>
+              <Text style={{ color: colors.text, fontSize: 14, lineHeight: 20 }}>
+                {review ? copy.review : copy.notApplicable}
+              </Text>
             </View>
           )}
 
@@ -164,7 +170,9 @@ export function RegistryCheckModal({ optionId, progress, onClose, onApproved }: 
               {editable(copy.surname2, surname2, setSurname2)}
               {readOnly(copy.birthdate, prefill.birthdate)}
               {readOnly(copy.documentNumber, prefill.documentNumber)}
-              {editable(copy.complement, complement, (value) => setComplement(value.toUpperCase().replace(/[^0-9A-Z]/g, '')), { maxLength: 3 })}
+              {editable(copy.complement, complement, (value) => setComplement(value.toUpperCase().replace(/[^0-9A-Z]/g, '')), {
+                maxLength: 3,
+              })}
             </ScrollView>
           )}
 
@@ -177,7 +185,11 @@ export function RegistryCheckModal({ optionId, progress, onClose, onApproved }: 
               <Text style={styles.primaryBtnText}>{submitting ? copy.submitting : copy.submit}</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={[styles.secondaryBtn, { borderColor: colors.border }]} onPress={onClose} disabled={submitting}>
+          <TouchableOpacity
+            style={[styles.secondaryBtn, { borderColor: colors.border }]}
+            onPress={onClose}
+            disabled={submitting}
+          >
             <Text style={{ color: colors.text, fontWeight: '600' }}>{copy.close}</Text>
           </TouchableOpacity>
           <PollarModalFooter />

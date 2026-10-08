@@ -101,7 +101,10 @@ export function fieldErrorsOf(error: unknown): Record<string, string> | null {
   return Object.keys(errors).length ? errors : null;
 }
 
-export const COPY: Record<FormLanguage, Record<'title' | 'loading' | 'submit' | 'submitting' | 'close' | 'loadError' | 'submitError' | 'step', string>> = {
+export const COPY: Record<
+  FormLanguage,
+  Record<'title' | 'loading' | 'submit' | 'submitting' | 'close' | 'loadError' | 'submitError' | 'step', string>
+> = {
   en: {
     title: 'A few more details',
     loading: 'Loading the form…',

@@ -111,7 +111,15 @@ export function AppKycFlow({ onClose, country, level, onApproved }: AppKycFlowPr
   const { step } = state;
   const progress = { position: step.completed + 1, total: step.total };
   if (step.type === 'FORM') {
-    return <RequirementFormModal key={step.optionId} formId={step.optionId} progress={progress} onClose={onClose} onSubmitted={() => void load()} />;
+    return (
+      <RequirementFormModal
+        key={step.optionId}
+        formId={step.optionId}
+        progress={progress}
+        onClose={onClose}
+        onSubmitted={() => void load()}
+      />
+    );
   }
   // The KYC modal shows its own result; closing it after an approval moves to the next step.
   return (

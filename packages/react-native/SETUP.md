@@ -22,10 +22,10 @@ npm install @pollar/react-native @pollar/core
 2. Create a new application (or select an existing one)
 3. Copy your **publishable API key** from the Settings page
 
-| Key prefix        | Network | Environment |
-|-------------------|---------|-------------|
-| `pub_testnet_`    | Testnet | Development |
-| `pub_mainnet_`    | Mainnet | Production  |
+| Key prefix     | Network | Environment |
+| -------------- | ------- | ----------- |
+| `pub_testnet_` | Testnet | Development |
+| `pub_mainnet_` | Mainnet | Production  |
 
 > **Note:** Publishable keys are safe to include in your frontend code. Never expose secret keys (`sec_*`) in client-side code.
 
@@ -42,7 +42,7 @@ export default function App() {
   return (
     <PollarProvider
       config={{
-        apiKey: 'pub_testnet_xxxxxxxxxxxxxxxxxxxx',  // ← Your key here
+        apiKey: 'pub_testnet_xxxxxxxxxxxxxxxxxxxx', // ← Your key here
         stellarNetwork: 'testnet',
       }}
     >
@@ -54,11 +54,11 @@ export default function App() {
 
 ### Configuration options
 
-| Option           | Type     | Default                        | Description                     |
-|------------------|----------|--------------------------------|---------------------------------|
-| `apiKey`         | `string` | —                              | **Required.** Your Pollar key.  |
-| `stellarNetwork` | `string` | `'testnet'`                    | `'testnet'` or `'mainnet'`.     |
-| `baseUrl`        | `string` | `'https://sdk.api.pollar.xyz'` | Override the API base URL.      |
+| Option           | Type     | Default                        | Description                    |
+| ---------------- | -------- | ------------------------------ | ------------------------------ |
+| `apiKey`         | `string` | —                              | **Required.** Your Pollar key. |
+| `stellarNetwork` | `string` | `'testnet'`                    | `'testnet'` or `'mainnet'`.    |
+| `baseUrl`        | `string` | `'https://sdk.api.pollar.xyz'` | Override the API base URL.     |
 
 ### Style overrides (optional)
 
@@ -98,6 +98,7 @@ function HomeScreen() {
 ```
 
 This renders a button that:
+
 - Opens the **login modal** when the user is not authenticated
 - Shows the **wallet address** with a dropdown menu when authenticated
 
@@ -188,6 +189,7 @@ npm install
 ```
 
 > **Important:** After making changes to core packages, always clear the Metro bundler cache:
+>
 > ```bash
 > npm start -- -c
 > ```

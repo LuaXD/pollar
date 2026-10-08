@@ -72,7 +72,14 @@ export function ProviderRegistrationModal({ corridorId, progress, onClose, onReg
       if (!mounted.current) return;
       const code = errorCode(e);
       if (code === 'KYC_REGISTRATION_MISSING_DATA') {
-        setError(copy.missing.replace('{fields}', missingFieldsOf(e).map((key) => labels[key] ?? key).join(', ')));
+        setError(
+          copy.missing.replace(
+            '{fields}',
+            missingFieldsOf(e)
+              .map((key) => labels[key] ?? key)
+              .join(', '),
+          ),
+        );
       } else if (code === 'KYC_REGISTRATION_STEPS_PENDING') setError(copy.notReady);
       else setError(copy.submitError);
     } finally {
@@ -94,7 +101,11 @@ export function ProviderRegistrationModal({ corridorId, progress, onClose, onReg
               </Text>
             )}
           </View>
-          <TouchableOpacity style={[styles.closeBtn, { borderColor: colors.border }]} onPress={onClose} accessibilityLabel={copy.close}>
+          <TouchableOpacity
+            style={[styles.closeBtn, { borderColor: colors.border }]}
+            onPress={onClose}
+            accessibilityLabel={copy.close}
+          >
             <Text style={{ color: colors.muted, fontSize: 16 }}>✕</Text>
           </TouchableOpacity>
 
@@ -136,7 +147,10 @@ export function ProviderRegistrationModal({ corridorId, progress, onClose, onReg
                 <View
                   style={[
                     styles.box,
-                    { borderColor: consent ? accentColor : colors.border, backgroundColor: consent ? accentColor : 'transparent' },
+                    {
+                      borderColor: consent ? accentColor : colors.border,
+                      backgroundColor: consent ? accentColor : 'transparent',
+                    },
                   ]}
                 >
                   {consent && <Text style={styles.boxMark}>✓</Text>}
@@ -155,7 +169,11 @@ export function ProviderRegistrationModal({ corridorId, progress, onClose, onReg
               <Text style={styles.primaryBtnText}>{submitting ? copy.submitting : copy.submit}</Text>
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={[styles.secondaryBtn, { borderColor: colors.border }]} onPress={onClose} disabled={submitting}>
+          <TouchableOpacity
+            style={[styles.secondaryBtn, { borderColor: colors.border }]}
+            onPress={onClose}
+            disabled={submitting}
+          >
             <Text style={{ color: colors.text, fontWeight: '600' }}>{copy.close}</Text>
           </TouchableOpacity>
           <PollarModalFooter />

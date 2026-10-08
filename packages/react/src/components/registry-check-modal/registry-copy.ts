@@ -39,7 +39,8 @@ export const REGISTRY_COPY: Record<FormLanguage, RegistryCopy> = {
     close: 'Close',
     approved: 'Your details were confirmed.',
     review: 'Your details are being reviewed. You can continue once they are confirmed.',
-    notApplicable: 'This check is only for Bolivian ID cards (CI). Your verified document is not one, so this route is not available.',
+    notApplicable:
+      'This check is only for Bolivian ID cards (CI). Your verified document is not one, so this route is not available.',
     identityRequired: 'Verify your identity first.',
     nameMismatch: 'Both surnames together must read as on your document: {full}.',
     loadError: 'Could not load your details. Please try again.',
@@ -61,7 +62,8 @@ export const REGISTRY_COPY: Record<FormLanguage, RegistryCopy> = {
     close: 'Cerrar',
     approved: 'Tus datos fueron confirmados.',
     review: 'Tus datos están en revisión. Podrás continuar cuando se confirmen.',
-    notApplicable: 'Esta validación es solo para cédulas bolivianas (CI). Tu documento verificado no lo es, así que esta ruta no está disponible.',
+    notApplicable:
+      'Esta validación es solo para cédulas bolivianas (CI). Tu documento verificado no lo es, así que esta ruta no está disponible.',
     identityRequired: 'Primero verifica tu identidad.',
     nameMismatch: 'Los dos apellidos juntos deben leerse como en tu documento: {full}.',
     loadError: 'No se pudieron cargar tus datos. Intenta de nuevo.',

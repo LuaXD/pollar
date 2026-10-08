@@ -68,7 +68,14 @@ export function ProviderRegistrationModal({ corridorId, progress, onClose, onReg
       if (!mounted.current) return;
       const code = errorCode(e);
       if (code === 'KYC_REGISTRATION_MISSING_DATA') {
-        setError(copy.missing.replace('{fields}', missingFieldsOf(e).map((key) => labels[key] ?? key).join(', ')));
+        setError(
+          copy.missing.replace(
+            '{fields}',
+            missingFieldsOf(e)
+              .map((key) => labels[key] ?? key)
+              .join(', '),
+          ),
+        );
       } else if (code === 'KYC_REGISTRATION_STEPS_PENDING') setError(copy.notReady);
       else setError(copy.submitError);
     } finally {
@@ -131,7 +138,12 @@ export function ProviderRegistrationModal({ corridorId, progress, onClose, onReg
                   ))}
                 </ul>
                 <label className="pollar-form-choice">
-                  <input type="checkbox" checked={consent} disabled={submitting} onChange={(e) => setConsent(e.target.checked)} />
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    disabled={submitting}
+                    onChange={(e) => setConsent(e.target.checked)}
+                  />
                   {copy.consent}
                 </label>
               </>

@@ -133,7 +133,9 @@
   background: var(--pollar-bg);
   color: var(--pollar-text);
   cursor: pointer;
-  transition: border-color 0.15s, box-shadow 0.15s;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
 }
 
 .pollar-swap-asset-pill-wrap:hover,
@@ -233,7 +235,9 @@
   color: var(--pollar-btn-primary-fg, #fff);
   cursor: pointer;
   transform: translate(-50%, -50%);
-  transition: transform 0.15s, filter 0.15s;
+  transition:
+    transform 0.15s,
+    filter 0.15s;
 }
 
 .pollar-swap-reverse:hover:not(:disabled) {

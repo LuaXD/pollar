@@ -26,7 +26,10 @@ export function requiredRampKyc(error: unknown): PendingRequirement | null {
   if (code !== 'SDK_RAMPS_KYC_REQUIRED' || !body || typeof body !== 'object') return null;
   const { rampProviderId, corridorId, requirementType, optionId, kycProviderId } = body as Record<string, unknown>;
   if (!nonEmpty(rampProviderId) || !nonEmpty(corridorId)) return null;
-  if ((requirementType === 'FORM' || requirementType === 'REGISTRY_CHECK' || requirementType === 'PROVIDER_REGISTRATION') && nonEmpty(optionId)) {
+  if (
+    (requirementType === 'FORM' || requirementType === 'REGISTRY_CHECK' || requirementType === 'PROVIDER_REGISTRATION') &&
+    nonEmpty(optionId)
+  ) {
     return { rampProviderId, corridorId, type: requirementType, optionId };
   }
   const kyc = nonEmpty(optionId) && requirementType === 'KYC' ? optionId : kycProviderId;

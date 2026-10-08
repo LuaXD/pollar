@@ -86,7 +86,13 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', onApproved,
     setIsLoading(true);
     const key = (idempotencyKeys.current[provider.id] ??= newIdempotencyKey());
     try {
-      const result = await client.resolveKyc(provider.id, provider.levels?.[0] ?? level, listed ? country : undefined, corridorId, key);
+      const result = await client.resolveKyc(
+        provider.id,
+        provider.levels?.[0] ?? level,
+        listed ? country : undefined,
+        corridorId,
+        key,
+      );
       if (result.alreadyApproved) {
         finish('approved');
         return;
@@ -139,7 +145,11 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', onApproved,
       // The option a gate or a step names was chosen by the backend for this user: the
       // country this list was filtered by must not hide it behind "no providers".
       if (target) void handleSelectProvider(target);
-      else void handleSelectProvider({ id: providerId, name: 'Identity verification', flow: 'iframe', levels: [level] } as KycProvider, false);
+      else
+        void handleSelectProvider(
+          { id: providerId, name: 'Identity verification', flow: 'iframe', levels: [level] } as KycProvider,
+          false,
+        );
     });
     // handleSelectProvider reads the latest props on each call; listing it would reload providers every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps

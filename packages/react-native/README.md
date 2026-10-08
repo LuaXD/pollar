@@ -47,7 +47,9 @@ export function Profile() {
   return (
     <View>
       <Text>Wallet: {walletAddress}</Text>
-      <TouchableOpacity onPress={logout}><Text>Sign out</Text></TouchableOpacity>
+      <TouchableOpacity onPress={logout}>
+        <Text>Sign out</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -64,17 +66,17 @@ Context provider that initialises the Pollar client and makes it available to ch
   config={{
     apiKey: 'your-api-key',
     baseUrl: 'https://sdk.api.pollar.xyz', // optional
-    stellarNetwork: 'testnet',             // optional, default: 'testnet'
+    stellarNetwork: 'testnet', // optional, default: 'testnet'
   }}
 >
   {children}
 </PollarProvider>
 ```
 
-| Prop     | Type                | Required | Description                              |
-| -------- | ------------------- | -------- | ---------------------------------------- |
-| `config` | `PollarClientConfig`| Yes      | Configuration passed to `PollarClient`   |
-| `styles` | `PollarStyles`      | No       | Style overrides (theme, accent, providers) |
+| Prop     | Type                 | Required | Description                                |
+| -------- | -------------------- | -------- | ------------------------------------------ |
+| `config` | `PollarClientConfig` | Yes      | Configuration passed to `PollarClient`     |
+| `styles` | `PollarStyles`       | No       | Style overrides (theme, accent, providers) |
 
 ---
 
@@ -84,19 +86,19 @@ Returns the authentication and SDK context.
 
 ```ts
 const {
-  isAuthenticated,  // boolean — true when a valid session exists
-  walletAddress,    // string — public key of the authenticated wallet
-  login,            // (options: PollarLoginOptions) => void
-  logout,           // () => void
-  buildTx,          // (operation, params, options?) => Promise<void>
-  signAndSubmitTx,  // (unsignedXdr: string) => Promise<void>
-  transaction,      // TransactionState — current transaction state
-  txHistory,        // TxHistoryState — transaction history
-  network,          // StellarNetwork — current network
-  setNetwork,       // (network: StellarNetwork) => void
-  getClient,        // () => PollarClient
-  config,           // PollarConfig — remote app configuration
-  styles,           // PollarStyles — resolved styles
+  isAuthenticated, // boolean — true when a valid session exists
+  walletAddress, // string — public key of the authenticated wallet
+  login, // (options: PollarLoginOptions) => void
+  logout, // () => void
+  buildTx, // (operation, params, options?) => Promise<void>
+  signAndSubmitTx, // (unsignedXdr: string) => Promise<void>
+  transaction, // TransactionState — current transaction state
+  txHistory, // TxHistoryState — transaction history
+  network, // StellarNetwork — current network
+  setNetwork, // (network: StellarNetwork) => void
+  getClient, // () => PollarClient
+  config, // PollarConfig — remote app configuration
+  styles, // PollarStyles — resolved styles
   openLoginModal,
   openTransactionModal,
   openKycModal,
@@ -145,11 +147,11 @@ The modal handles all login providers, loading states, and error feedback out of
 `<RampWidget>` lists a route whose corridor has a pending requirement step as locked and opens that step itself. The
 same modals are exported for apps that build their own route list from the quote's `requirementsRequired`:
 
-| Component                     | Step                    | Props                                                        |
-| ----------------------------- | ----------------------- | ------------------------------------------------------------ |
-| `<RequirementFormModal>`      | `FORM`                  | `formId`, `progress?`, `onClose`, `onSubmitted`              |
-| `<RegistryCheckModal>`        | `REGISTRY_CHECK` (SEGIP) | `optionId`, `progress?`, `onClose`, `onApproved`            |
-| `<ProviderRegistrationModal>` | `PROVIDER_REGISTRATION` | `corridorId`, `progress?`, `onClose`, `onRegistered`         |
+| Component                     | Step                     | Props                                                |
+| ----------------------------- | ------------------------ | ---------------------------------------------------- |
+| `<RequirementFormModal>`      | `FORM`                   | `formId`, `progress?`, `onClose`, `onSubmitted`      |
+| `<RegistryCheckModal>`        | `REGISTRY_CHECK` (SEGIP) | `optionId`, `progress?`, `onClose`, `onApproved`     |
+| `<ProviderRegistrationModal>` | `PROVIDER_REGISTRATION`  | `corridorId`, `progress?`, `onClose`, `onRegistered` |
 
 `progress` is `{ position, total }` from the quote, shown as "Step n of total". The form modal prefills the user's
 previous answers; the registry modal prefills the verified identity and lets the user edit only the surname split and the
@@ -158,7 +160,7 @@ CI complement; the registration modal lists what the provider receives and sends
 ```tsx
 import { RegistryCheckModal } from '@pollar/react-native';
 
-<RegistryCheckModal optionId={step.optionId} progress={{ position: 2, total: 4 }} onClose={close} onApproved={requote} />
+<RegistryCheckModal optionId={step.optionId} progress={{ position: 2, total: 4 }} onClose={close} onApproved={requote} />;
 ```
 
 ---
