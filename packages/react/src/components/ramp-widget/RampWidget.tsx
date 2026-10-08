@@ -354,7 +354,13 @@ export function RampWidget({ onClose }: RampWidgetProps) {
       const result = await client.getRampsQuote({ country, amount: Number(amount), currency, direction });
       const list = result.quotes ?? [];
       if (list.length === 0) {
-        setErrorMsg(`No ramp providers available for ${country} yet.`);
+        // A provider that serves the route but is down is not "no providers".
+        const down = (result.unavailable ?? []).map((u) => u.provider);
+        setErrorMsg(
+          down.length > 0
+            ? `${down.join(', ')} ${down.length === 1 ? 'is' : 'are'} temporarily unavailable. Please try again later.`
+            : `No ramp providers available for ${country} yet.`,
+        );
         setStep('error');
         return;
       }

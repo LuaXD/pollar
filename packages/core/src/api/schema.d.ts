@@ -7009,6 +7009,10 @@ export interface operations {
                                 cryptoAmount: number | null;
                                 availableAmount: number | null;
                             }[];
+                            unavailable?: {
+                                provider: string;
+                                code: string;
+                            }[];
                         };
                     };
                 };
