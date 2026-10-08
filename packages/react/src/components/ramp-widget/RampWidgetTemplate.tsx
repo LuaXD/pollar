@@ -108,7 +108,7 @@ interface RampWidgetTemplateProps {
   countriesLoading: boolean;
   refreshing: boolean;
   quotes: RampQuote[];
-  /** Routes not quoted until the user passes the KYC their corridor requires. */
+  /** Routes not quoted until the user completes the requirement step their corridor names (KYC, form, registry check or provider registration). */
   kycRequired: RampQuoteRequirement[];
   isLoading: boolean;
   // status step

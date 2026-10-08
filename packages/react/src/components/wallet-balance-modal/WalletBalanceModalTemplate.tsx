@@ -177,7 +177,7 @@ export function WalletBalanceModalTemplate({
               <CopyButton value={walletAddress} label="Copy wallet address" className="pollar-bal-summary-copy" />
             </span>
           </div>
-          <div className="pollar-bal-summary-value">—</div>
+          <div className="pollar-bal-summary-value">{'\u2014'}</div>
           <span className="pollar-bal-summary-unavailable">Fiat valuation unavailable</span>
         </div>
       )*/}

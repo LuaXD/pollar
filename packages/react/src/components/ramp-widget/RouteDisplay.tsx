@@ -67,7 +67,7 @@ interface LockedRouteDisplayProps {
   onVerify: (requirement: RampQuoteRequirement) => void;
 }
 
-/** A route the backend did not quote because its corridor needs a KYC the user has not passed. */
+/** A route the backend did not quote because its corridor has a requirement step the user has not completed. */
 export function LockedRouteDisplay({ requirement, disabled = false, onVerify }: LockedRouteDisplayProps) {
   const { message, action } = lockedRouteCopy(requirement);
   return (

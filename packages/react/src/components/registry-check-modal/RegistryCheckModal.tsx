@@ -52,6 +52,7 @@ export function RegistryCheckModal({ optionId, progress, onClose, onApproved }: 
       .getRegistryCheck(optionId)
       .then((loaded) => {
         if (!mounted.current) return;
+        if (loaded.status === 'approved') return onApproved();
         setCheck(loaded);
         if (loaded.status === 'pending') setReview(true);
         if (loaded.prefill.applies) {
@@ -201,7 +202,7 @@ export function RegistryCheckModal({ optionId, progress, onClose, onApproved }: 
                 value={complement}
                 maxLength={3}
                 disabled={submitting}
-                onChange={(e) => setComplement(e.target.value.toUpperCase())}
+                onChange={(e) => setComplement(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, ''))}
               />
             </div>
             <div className="pollar-modal-actions">

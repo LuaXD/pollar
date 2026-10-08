@@ -99,7 +99,7 @@ export interface RampWidgetTemplateProps {
   countries: RampCountry[];
   countriesLoading: boolean;
   quotes: RampQuote[];
-  /** Routes not quoted until the user passes the KYC their corridor requires. */
+  /** Routes not quoted until the user completes the requirement step their corridor names (KYC, form, registry check or provider registration). */
   kycRequired: RampQuoteRequirement[];
   requiredFields: RampFieldSpec[];
   fieldValues: Record<string, string>;
@@ -131,7 +131,7 @@ export interface RampWidgetTemplateProps {
   onClose: () => void;
 }
 
-/** A route the backend did not quote because its corridor needs a KYC the user has not passed. */
+/** A route the backend did not quote because its corridor has a requirement step the user has not completed. */
 function LockedRoute({
   requirement,
   colors,
@@ -453,7 +453,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
   const [countries, setCountries] = useState<RampCountry[]>([]);
   const [countriesLoading, setCountriesLoading] = useState(true);
   const [quotes, setQuotes] = useState<RampQuote[]>([]);
-  const [kycRequired, setKycRequired] = useState<RampQuoteRequirement[]>([]);
+  const [requirementsRequired, setRequirementsRequired] = useState<RampQuoteRequirement[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<RampQuote | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [pendingKyc, setPendingKyc] = useState<PendingRequirement | null>(null);
@@ -555,7 +555,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
   function resetToInput({ keepMessage = false }: { keepMessage?: boolean } = {}) {
     setStep('input');
     setQuotes([]);
-    setKycRequired([]);
+    setRequirementsRequired([]);
     setSelectedQuote(null);
     setFieldValues({});
     setTxId(null);
@@ -572,7 +572,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
   }
 
   /**
-   * Quote the current input. A route held back by KYC still counts as an answer:
+   * Quote the current input. A route held back by a requirement step still counts as an answer:
    * it is shown locked, so "no providers" only means nothing came back at all.
    */
   async function fetchQuotes(): Promise<{ list: RampQuote[]; locked: RampQuoteRequirement[] } | null> {
@@ -603,7 +603,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
     setIsLoading(false);
     if (!quoted) return;
     setQuotes(quoted.list);
-    setKycRequired(quoted.locked);
+    setRequirementsRequired(quoted.locked);
     setStep('select_route');
   }
 
@@ -623,7 +623,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
     setIsLoading(false);
     if (!quoted) return;
     setQuotes(quoted.list);
-    setKycRequired(quoted.locked);
+    setRequirementsRequired(quoted.locked);
     setNoticeMsg(
       completed === 'KYC'
         ? 'Your identity is verified. Prices may have changed, so choose a route to continue.'
@@ -749,7 +749,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
     }
   }
 
-  /** Open the step a locked route names (KYC or a form); completing it re-quotes like the start gate does. */
+  /** Open the step a locked route names (KYC, form, registry check or registration); completing it re-quotes like the start gate does. */
   function handleVerifyRoute(requirement: RampQuoteRequirement) {
     const attempt = pendingFromQuote(requirement);
     setErrorMsg(null);
@@ -842,7 +842,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
           countries={countries}
           countriesLoading={countriesLoading}
           quotes={quotes}
-          kycRequired={kycRequired}
+          kycRequired={requirementsRequired}
           requiredFields={selectedQuote ? requiredFieldsOf(selectedQuote) : []}
           fieldValues={fieldValues}
           isLoading={isLoading}

@@ -10,6 +10,7 @@ import {
   fieldErrorsOf,
   formLanguage,
   initialValues,
+  localFieldErrors,
   localized,
   type FormLanguage,
   type FormValues,
@@ -171,8 +172,10 @@ export function RequirementFormModal({ formId, progress, onClose, onSubmitted }:
 
   async function submit() {
     if (!form) return;
-    setSubmitting(true);
     setError(null);
+    const local = localFieldErrors(form.fields, values);
+    if (Object.keys(local).length) return setFieldErrors(local);
+    setSubmitting(true);
     setFieldErrors({});
     try {
       await client.submitRequirementForm(form.formId, answersOf(form.fields, values));

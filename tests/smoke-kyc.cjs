@@ -72,8 +72,15 @@ const {
   assert.equal(await pollKycStatus(api, 'provider', opts), 'expired');
   sequence({ status: 'none', decisionStatus: 'expired' });
   assert.equal(await pollKycStatus(api, 'provider', opts), 'expired');
+  // An approval the vendor gave while Pollar still records it settles on its own:
+  // another read seconds later does not change it, so the modal shows that state.
+  calls = sequence({ status: 'pending', decisionStatus: 'approved' }, { status: 'approved' });
+  const recording = await pollKycDecision(api, 'provider', opts);
+  assert.equal(recording.status, 'pending');
+  assert.equal(recording.decisionStatus, 'approved');
+  assert.equal(calls(), 1);
   calls = sequence(
-    { status: 'pending', decisionStatus: 'approved' },
+    { status: 'pending', decisionStatus: 'pending' },
     {
       status: 'pending',
       decisionStatus: 'manual_review',

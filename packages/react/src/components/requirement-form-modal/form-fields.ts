@@ -26,6 +26,26 @@ export function initialValues(fields: RequirementFormField[], answers: Requireme
   return values;
 }
 
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * What the inputs can tell before the server does: a number that is not one and a
+ * date outside `YYYY-MM-DD`. Both would otherwise leave as `null` or free text and
+ * come back as a server error, or be dropped silently when the field is optional.
+ */
+export function localFieldErrors(fields: RequirementFormField[], values: FormValues): Record<string, string> {
+  const errors: Record<string, string> = {};
+  for (const field of fields) {
+    const value = values[field.key];
+    if (typeof value !== 'string' || !value.trim()) continue;
+    if (field.type === 'number' && !Number.isFinite(Number(value))) errors[field.key] = 'invalid_type';
+    if (field.type === 'date' && (!DATE.test(value.trim()) || Number.isNaN(Date.parse(`${value.trim()}T00:00:00Z`)))) {
+      errors[field.key] = 'invalid_format';
+    }
+  }
+  return errors;
+}
+
 /** The answers to send: numbers as numbers, empty inputs left out so the server reports them. */
 export function answersOf(fields: RequirementFormField[], values: FormValues): RequirementFormAnswers {
   const answers: RequirementFormAnswers = {};
@@ -69,7 +89,7 @@ export function fieldErrorMessage(code: string, language: FormLanguage): string 
   return MESSAGES[language][code] ?? MESSAGES[language].invalid_type!;
 }
 
-/** The per-field errors of a KYC_FORM_INVALID_ANSWERS error, by key. */
+/** The per-field errors of a KYC_FORM_INVALID_ANSWERS error, by key; null when it names none. */
 export function fieldErrorsOf(error: unknown): Record<string, string> | null {
   if (!error || typeof error !== 'object') return null;
   const { code, body } = error as { code?: unknown; body?: { errors?: unknown } };
@@ -78,7 +98,7 @@ export function fieldErrorsOf(error: unknown): Record<string, string> | null {
   for (const item of body.errors as { key?: unknown; code?: unknown }[]) {
     if (typeof item.key === 'string' && typeof item.code === 'string') errors[item.key] = item.code;
   }
-  return errors;
+  return Object.keys(errors).length ? errors : null;
 }
 
 export const COPY: Record<FormLanguage, Record<'title' | 'loading' | 'submit' | 'submitting' | 'close' | 'loadError' | 'submitError' | 'step', string>> = {

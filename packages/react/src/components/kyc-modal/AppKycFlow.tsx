@@ -19,7 +19,7 @@ type FlowState =
   /** The app has no steps: the KYC modal lists its enabled options, as it always did. */
   | { kind: 'options' }
   | { kind: 'step'; step: AppRequirementStep }
-  /** Every step was already complete on open; the KYC modal shows the verified state on this option. */
+  /** Every step was already complete on open; the KYC modal shows the verified state on the option the user passed. */
   | { kind: 'done'; providerId: string };
 
 /**
@@ -34,6 +34,9 @@ export function AppKycFlow({ onClose, country, level, onApproved }: AppKycFlowPr
   const kycStepDone = useRef(false);
   // On the first read a complete flow shows its verified state; after a step it just closes.
   const firstRead = useRef(true);
+  // One read at a time: development runs the mount effect twice, and the second read
+  // would see the first one's `firstRead` and close the flow instead of showing it.
+  const loading = useRef(false);
   const mounted = useRef(true);
   useEffect(() => {
     // Set on every mount: development mounts components twice, and the cleanup of the
@@ -44,7 +47,25 @@ export function AppKycFlow({ onClose, country, level, onApproved }: AppKycFlowPr
     };
   }, []);
 
+  /**
+   * The KYC option the user holds an approval on, among the ones a step accepts. A
+   * status read never opens a vendor session; opening an option the user did not pass
+   * would start (and bill) one.
+   */
+  async function approvedOption(steps: { type: string; optionIds: string[] }[]): Promise<string | null> {
+    for (const step of steps) {
+      if (step.type !== 'KYC') continue;
+      for (const optionId of step.optionIds) {
+        const status = await client.getKycStatus(optionId).catch(() => null);
+        if (status?.status === 'approved') return optionId;
+      }
+    }
+    return null;
+  }
+
   const load = useCallback(async () => {
+    if (loading.current) return;
+    loading.current = true;
     kycStepDone.current = false;
     try {
       const requirements = await client.getAppRequirements();
@@ -54,12 +75,15 @@ export function AppKycFlow({ onClose, country, level, onApproved }: AppKycFlowPr
       firstRead.current = false;
       if (requirements.next) return setState({ kind: 'step', step: requirements.next });
       onApproved?.();
-      const kyc = requirements.steps.find((step) => step.type === 'KYC');
-      if (first && kyc?.optionIds[0]) setState({ kind: 'done', providerId: kyc.optionIds[0] });
+      const providerId = first ? await approvedOption(requirements.steps) : null;
+      if (!mounted.current) return;
+      if (providerId) setState({ kind: 'done', providerId });
       else onClose();
     } catch {
       // Without the steps the modal still works as it did: it lists the enabled options.
       if (mounted.current) setState({ kind: 'options' });
+    } finally {
+      loading.current = false;
     }
     // The client instance and the callback are fixed while the flow is open.
     // eslint-disable-next-line react-hooks/exhaustive-deps

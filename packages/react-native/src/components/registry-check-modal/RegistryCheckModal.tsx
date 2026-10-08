@@ -55,6 +55,7 @@ export function RegistryCheckModal({ optionId, progress, onClose, onApproved }: 
       .getRegistryCheck(optionId)
       .then((loaded) => {
         if (!mounted.current) return;
+        if (loaded.status === 'approved') return onApproved();
         setCheck(loaded);
         if (loaded.status === 'pending') setReview(true);
         if (loaded.prefill.applies) {
@@ -163,7 +164,7 @@ export function RegistryCheckModal({ optionId, progress, onClose, onApproved }: 
               {editable(copy.surname2, surname2, setSurname2)}
               {readOnly(copy.birthdate, prefill.birthdate)}
               {readOnly(copy.documentNumber, prefill.documentNumber)}
-              {editable(copy.complement, complement, (value) => setComplement(value.toUpperCase()), { maxLength: 3 })}
+              {editable(copy.complement, complement, (value) => setComplement(value.toUpperCase().replace(/[^0-9A-Z]/g, '')), { maxLength: 3 })}
             </ScrollView>
           )}
 

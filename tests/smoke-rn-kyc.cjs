@@ -68,7 +68,11 @@ function load(file) {
       };
     }
     if (id === '../kyc-modal/KycModal') return load('packages/react-native/src/components/kyc-modal/KycModal.tsx');
-    if (id.startsWith('.')) return load(path.join(path.dirname(file), `${id}.ts`));
+    if (id.startsWith('.')) {
+      // Containers (.tsx) and helpers (.ts) import each other without an extension.
+      const base = path.join(path.dirname(file), id);
+      return load(fs.existsSync(path.resolve(__dirname, '..', `${base}.tsx`)) ? `${base}.tsx` : `${base}.ts`);
+    }
     return require(id);
   };
   vm.runInNewContext(output, scope);
@@ -167,12 +171,16 @@ const option = { id: 'option-a', name: 'Didit', flow: 'iframe', levels: ['basic'
   assert.equal(starts[1].amount, 10);
   await unmount();
 
-  // Quote-time gate: a KYC-gated route arrives in `kycRequired`, not in `quotes`.
+  // Quote-time gate: a route with a pending step arrives in `requirementsRequired`, not in `quotes`.
   const locked = {
     provider: 'Stereum',
     rampProviderId: 'ramp-b',
     corridorId: 'corridor-b',
-    kycProviderId: 'option-b',
+    position: 1,
+    completed: 0,
+    total: 1,
+    type: 'KYC',
+    optionId: 'option-b',
     status: 'none',
   };
   quoteCalls = 0;
@@ -183,7 +191,7 @@ const option = { id: 'option-a', name: 'Didit', flow: 'iframe', levels: ['basic'
     getRampsQuote: async () => {
       quoteCalls++;
       return quoteCalls === 1
-        ? { quotes: [], kycRequired: [locked] }
+        ? { quotes: [], requirementsRequired: [locked] }
         : { quotes: [{ quoteId: 'unlocked', provider: 'Stereum' }] };
     },
     createOnRamp: async (body) => {

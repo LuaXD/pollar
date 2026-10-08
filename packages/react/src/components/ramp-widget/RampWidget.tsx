@@ -148,7 +148,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
   const [countriesLoading, setCountriesLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [quotes, setQuotes] = useState<RampQuote[]>([]);
-  const [kycRequired, setKycRequired] = useState<RampQuoteRequirement[]>([]);
+  const [requirementsRequired, setRequirementsRequired] = useState<RampQuoteRequirement[]>([]);
   const [selectedQuote, setSelectedQuote] = useState<RampQuote | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [pendingKyc, setPendingKyc] = useState<PendingRequirement | null>(null);
@@ -271,7 +271,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
       if (step === 'select_route') {
         const result = await client.getRampsQuote({ country, amount: Number(amount), currency, direction });
         setQuotes(result.quotes ?? []);
-        setKycRequired(result.requirementsRequired ?? []);
+        setRequirementsRequired(result.requirementsRequired ?? []);
       } else if (step === 'status' && txId) {
         const tx = await client.getRampTransaction(txId);
         setTxStatus(tx.status);
@@ -292,7 +292,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
   function resetToInput({ keepMessage = false }: { keepMessage?: boolean } = {}) {
     setStep('input');
     setQuotes([]);
-    setKycRequired([]);
+    setRequirementsRequired([]);
     setSelectedQuote(null);
     // Clear the collected provider fields (name/email/etc.) so a retry re-shows
     // the 'contact' step. Otherwise a stale (possibly invalid) value keeps the
@@ -349,7 +349,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
   }
 
   /**
-   * Quote the current input. A route held back by KYC still counts as an answer:
+   * Quote the current input. A route held back by a requirement step still counts as an answer:
    * it is shown locked, so "no providers" only means nothing came back at all.
    */
   async function loadQuotes(): Promise<boolean> {
@@ -362,7 +362,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
       return false;
     }
     setQuotes(list);
-    setKycRequired(locked);
+    setRequirementsRequired(locked);
     return true;
   }
 
@@ -483,7 +483,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
     }
   }
 
-  /** Open the step a locked route names (KYC or a form); completing it re-quotes like the start gate does. */
+  /** Open the step a locked route names (KYC, form, registry check or registration); completing it re-quotes like the start gate does. */
   function handleVerifyRoute(requirement: RampQuoteRequirement) {
     const attempt = pendingFromQuote(requirement);
     setErrorMsg(null);
@@ -612,7 +612,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
         countriesLoading={countriesLoading}
         refreshing={refreshing}
         quotes={quotes}
-        kycRequired={kycRequired}
+        kycRequired={requirementsRequired}
         isLoading={isLoading}
         provider={provider}
         txStatus={txStatus}

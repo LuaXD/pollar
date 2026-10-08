@@ -45,7 +45,7 @@ export function pendingFromQuote(requirement: RampQuoteRequirement): PendingRequ
 }
 
 /**
- * What a route held back by KYC says, and the button it offers. A verification
+ * What a route held back by a requirement step says, and the button it offers. A verification
  * held for review (`reviewReason`) or rejected has nothing the user can do from
  * here, so those rows carry no button.
  */

@@ -279,7 +279,8 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', corridorId,
   // the first, and the auto-open path can fire alongside a tap.
   const starting = useRef(false);
 
-  async function handleSelectProvider(provider: KycProvider) {
+  /** `listed`: the option came from the country-filtered list. Off it, the backend picks the option's own country. */
+  async function handleSelectProvider(provider: KycProvider, listed = true) {
     if (starting.current) return;
     starting.current = true;
     setSelectedProvider(provider);
@@ -287,7 +288,7 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', corridorId,
     setIsLoading(true);
     const key = (idempotencyKeys.current[provider.id] ??= newIdempotencyKey());
     try {
-      const result = await client.resolveKyc(provider.id, provider.levels?.[0] ?? level, country, corridorId, key);
+      const result = await client.resolveKyc(provider.id, provider.levels?.[0] ?? level, listed ? country : undefined, corridorId, key);
       if (!mounted.current) return;
       if (result.alreadyApproved) {
         finish('approved');
@@ -346,10 +347,12 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', corridorId,
   useEffect(() => {
     void loadProviders().then((list) => {
       if (!providerId || autoOpened.current || !mounted.current) return;
-      const target = list.find((p) => p.id === providerId);
-      if (!target) return;
       autoOpened.current = true;
-      void handleSelectProvider(target);
+      const target = list.find((p) => p.id === providerId);
+      // The option a gate or a step names was chosen by the backend for this user: the
+      // country this list was filtered by must not hide it behind "no providers".
+      if (target) void handleSelectProvider(target);
+      else void handleSelectProvider({ id: providerId, name: 'Identity verification', flow: 'iframe', levels: [level] } as KycProvider, false);
     });
     // handleSelectProvider reads the latest props on each call; listing it would reload providers every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps

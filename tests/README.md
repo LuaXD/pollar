@@ -230,11 +230,18 @@ API/presentation. Both Buy and Sell open the KYC option the backend gate names.
 Cancellation and late approval preserve the form without continuing; approval
 fetches fresh quotes once for the same input and returns to the route list, so
 no order starts on a quote the user did not see. A failed or empty re-quote
-stops on the error step. No live vendor requests or transactions are made.
+stops on the error step. A route the quote lists in `requirementsRequired`
+shows locked instead of "no providers"; a `FORM`, `REGISTRY_CHECK` or
+`PROVIDER_REGISTRATION` step opens its own modal with the id that step needs
+(form, registry option or corridor) and re-quotes once when done. No live vendor
+requests or transactions are made.
 
 `node tests/smoke-kyc.cjs` covers the core KYC calls (typed errors, idempotency
-key, settled polling) and `node tests/smoke-kyc-modal.cjs` the web modal (gate
+key, settled polling: an approval the vendor gave while Pollar still records it
+settles on its own) and `node tests/smoke-kyc-modal.cjs` the web modal (gate
 option opened directly, error codes, manual review, expiry).
+
+All four run as part of `npm run test:smoke`.
 
 `node tests/smoke-rn-kyc.cjs` runs the React Native KycModal and RampWidget with
 `react-native` mocked as plain components: the hosted KYC page goes to the
