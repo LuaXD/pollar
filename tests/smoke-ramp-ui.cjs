@@ -7,6 +7,7 @@ Object.assign(globalThis, {
   HTMLElement: dom.window.HTMLElement,
   IS_REACT_ACT_ENVIRONMENT: true,
 });
+globalThis.navigator = dom.window.navigator;
 const React = require('react');
 const { createRoot } = require('react-dom/client');
 const { RampWorkflow, RampWidget, PollarProvider } = require('../packages/react/dist/index.js');
@@ -155,6 +156,31 @@ const base = {
     walletSigns++;
     return 'signed:unsigned';
   });
+  // Country discovery must finish before a route can replace country/currency.
+  let resolveCountries;
+  main.getRampCountries = () =>
+    new Promise((resolve) => {
+      resolveCountries = resolve;
+    });
+  const loadingRoot = createRoot(document.getElementById('root'));
+  await React.act(async () =>
+    loadingRoot.render(
+      React.createElement(
+        PollarProvider,
+        { client: main, appConfig: { application: { name: 'Fixture', network: 'mainnet', chains: [] }, styles: {} } },
+        React.createElement(RampWidget, { onClose() {} }),
+      ),
+    ),
+  );
+  const pendingRoute = [...document.querySelectorAll('select')].find((select) =>
+    [...select.options].some((option) => option.value === route.routeId),
+  );
+  assert.ok(pendingRoute);
+  assert.equal(pendingRoute.disabled, true);
+  await React.act(async () => resolveCountries({ countries: [{ code: 'BO', currency: 'BOB' }] }));
+  assert.equal(pendingRoute.disabled, false);
+  await React.act(async () => loadingRoot.unmount());
+  main.getRampCountries = async () => ({ countries: [] });
   const widgetRoot = createRoot(document.getElementById('root'));
   async function startWidget(widgetRoot) {
     await React.act(async () =>
@@ -236,6 +262,17 @@ const base = {
   assert.equal(submissions, 1);
   assert.match(document.body.textContent, /Signature submission rejected/);
   await React.act(async () => legacyRoot.unmount());
+  main.createOffRamp = async () => ({
+    txId: 'legacy-completed',
+    provider: 'Registered fixture',
+    status: 'completed',
+    pendingSignature: { action: 'withdraw_payment', unsignedXdr: 'unsigned-legacy' },
+  });
+  const completedRoot = createRoot(document.getElementById('root'));
+  await startWidget(completedRoot);
+  assert.ok(![...document.querySelectorAll('button')].some((button) => button.textContent === 'Authorize wallet request'));
+  assert.equal(legacySigns, 1);
+  await React.act(async () => completedRoot.unmount());
   main.destroy();
   console.log(
     'Web ramp UI: generic and legacy explicit signing, duplicate protection, failures, exact terms and verification passed.',

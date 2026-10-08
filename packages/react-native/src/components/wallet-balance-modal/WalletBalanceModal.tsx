@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet, TouchableWithoutFeedback } from 'react-native';
 import { usePollar } from '../../context';
-import { WalletBalanceModalTemplate } from './WalletBalanceModalUI'; // Bypassing cache
+import { WalletBalanceModalTemplate } from './WalletBalanceModalUI';
 
 export interface WalletBalanceModalProps {
   onClose: () => void;

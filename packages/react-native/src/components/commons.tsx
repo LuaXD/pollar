@@ -28,11 +28,11 @@ export class ModalErrorBoundary extends Component<{ children: ReactNode; onClose
 
   componentDidCatch(error: unknown) {
     console.error('[Pollar] Modal crashed:', error);
-    this.props.onClose();
   }
 
   render() {
     if (this.state.crashed) {
+      this.props.onClose();
       return null;
     }
     return <>{this.props.children}</>;
@@ -55,7 +55,7 @@ export const PollarModalFooter = () => {
 export function PollarOverlay({ children, onCancel }: { children: ReactNode; onCancel: () => void }) {
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onCancel}>
-      <View style={{ position: 'absolute', top: 0, right: 0, bottom: 0, left: 0 }}>
+      <View style={StyleSheet.absoluteFill}>
         <TouchableWithoutFeedback onPress={onCancel}>
           <View
             style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 }}

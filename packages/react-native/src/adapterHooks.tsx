@@ -1,13 +1,12 @@
-import type { PollarAdapters } from '@pollar/core';
+import type { PollarAdapter, SubmitOutcome } from '@pollar/core';
 import { useRef } from 'react';
 import { usePollar } from './context';
-type EscrowAdapter = PollarAdapters[string];
 
-type WrappedAdapter<T extends EscrowAdapter> = {
-  [K in keyof T]: (params: Parameters<T[K]>[0]) => Promise<void>;
+type WrappedAdapter<T extends PollarAdapter> = {
+  [K in keyof T]: (params: Parameters<T[K]>[0]) => Promise<SubmitOutcome>;
 };
 
-export function createPollarAdapterHook<T extends EscrowAdapter>(key: string) {
+export function createPollarAdapterHook<T extends PollarAdapter>(key: string) {
   return function usePollarAdapter(): WrappedAdapter<T> {
     const { adapters, signAndSubmitTx } = usePollar();
     const pending = useRef(false);
@@ -25,7 +24,7 @@ export function createPollarAdapterHook<T extends EscrowAdapter>(key: string) {
           pending.current = true;
           try {
             const { unsignedTransaction } = await fn(params);
-            await signAndSubmitTx(unsignedTransaction);
+            return await signAndSubmitTx(unsignedTransaction);
           } finally {
             pending.current = false;
           }

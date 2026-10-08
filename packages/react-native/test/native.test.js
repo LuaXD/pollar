@@ -96,6 +96,7 @@ function fakeClient() {
     'refreshBalance',
   ])
     client[name] = jest.fn(async () => {});
+  client.getKycProviders = jest.fn(async () => ({ providers: [] }));
   client.getRampRoutes = jest.fn(async () => ({ routes: [] }));
   client.getAppConfig = jest.fn(async () => config);
   client.logout = jest.fn(async () => {
@@ -212,7 +213,11 @@ test('exported ramp and KYC components preserve native modal dismissal', async (
   );
   expect(onClose).toHaveBeenCalledTimes(1);
   await ramp.unmountAsync();
-  const kyc = render(<KycModal onClose={onClose} country="BO" />);
+  const kyc = await renderAsync(
+    <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
+      <KycModal onClose={onClose} country="BO" />
+    </PollarProvider>,
+  );
   fireEvent(kyc.UNSAFE_getByType(Modal), 'requestClose');
   expect(onClose).toHaveBeenCalledTimes(2);
 });
@@ -437,7 +442,7 @@ test('modal replacement uses one host and Android Back cancels login', async () 
   expect(view.UNSAFE_getAllByType(Modal)).toHaveLength(1);
   act(() => view.UNSAFE_getByType(Modal).props.onRequestClose());
   expect(client.cancelLogin).toHaveBeenCalled();
-  expect(view.UNSAFE_getByType(Modal).props.visible).toBe(false);
+  expect(view.UNSAFE_queryAllByType(Modal).filter((modal) => modal.props.visible)).toHaveLength(0);
 });
 test('failed remote configuration can be retried', async () => {
   const client = fakeClient();
@@ -684,4 +689,112 @@ test('registered future-chain route drives the native widget and resumes without
   await waitFor(() => expect(view.getByText('Confirming settlement')).toBeTruthy());
   expect(signer).toHaveBeenCalledTimes(1);
   expect(client.createOffRamp).toHaveBeenCalledTimes(1);
+});
+
+test('exported ramp combines registered routes, exact amounts and saved explicit signing', async () => {
+  const client = fakeClient();
+  client.auth = { step: 'authenticated', verified: true, session: { clientSessionId: 'generic-ramp' } };
+  const route = {
+    routeId: 'fixture:MX:offramp',
+    direction: 'offramp',
+    country: 'MX',
+    fiatCurrency: 'MXN',
+    rail: 'BANK',
+    asset: { code: 'NATIVE', identifier: null, chain: 'FUTURE_CHAIN', network: 'mainnet', precision: 12 },
+    limits: { denomination: 'fiat', min: null, max: null },
+  };
+  const terms = {
+    fiatAmount: '20.00',
+    fiatCurrency: 'MXN',
+    cryptoAmount: '1.123456789012',
+    assetCode: 'NATIVE',
+    assetChain: 'FUTURE_CHAIN',
+    assetIssuer: null,
+    feeAmount: '0',
+    feeCurrency: 'MXN',
+  };
+  client.getRampCountries.mockResolvedValue({ countries: [] });
+  client.getRampRoutes.mockResolvedValue({ routes: [route] });
+  client.getRampsQuote.mockResolvedValue({
+    quotes: [
+      {
+        quoteId: 'fixture',
+        provider: 'Fixture',
+        route,
+        terms,
+        requiredFields: [],
+        fee: 0,
+        feeCurrency: 'MXN',
+        rate: 20,
+        rail: 'BANK',
+        protocol: 'REST',
+        estimatedTime: 'minutes',
+      },
+    ],
+  });
+  const saved = {
+    txId: 'generic-tx',
+    provider: 'Fixture',
+    status: 'pending',
+    lifecycleState: 'awaiting_payment',
+    transactionVersion: 2,
+    terms,
+    nextAction: {
+      kind: 'sign_transaction',
+      actionId: 'sign',
+      purpose: 'withdrawal_payment',
+      chain: 'FUTURE_CHAIN',
+      network: 'mainnet',
+      payload: { encoding: 'fixture-json', value: 'unsigned' },
+      expiresAt: new Date(Date.now() + 60000).toISOString(),
+    },
+  };
+  client.createOffRamp.mockResolvedValue(saved);
+  client.signRampAction = jest.fn(async () => ({
+    ...saved,
+    transactionVersion: 3,
+    nextAction: { kind: 'wait', actionId: 'wait', reason: 'settlement_verification' },
+  }));
+  function ReopenRamp() {
+    const [open, setOpen] = React.useState(true);
+    return open ? (
+      <RampWidget onClose={() => setOpen(false)} />
+    ) : (
+      <ActionButton title="Reopen ramp" onPress={() => setOpen(true)} />
+    );
+  }
+  const view = await renderAsync(
+    <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
+      <ReopenRamp />
+    </PollarProvider>,
+  );
+  fireEvent.press(view.getByText('offramp · MXN / NATIVE · FUTURE_CHAIN · BANK'));
+  fireEvent.changeText(view.getByPlaceholderText('25.00'), '20.00');
+  await act(async () => fireEvent.press(view.getByText('Find routes')));
+  expect(client.getRampsQuote).toHaveBeenCalledWith(
+    expect.objectContaining({
+      routeId: route.routeId,
+      country: 'MX',
+      currency: 'MXN',
+      amountExact: '20.00',
+      chain: 'FUTURE_CHAIN',
+    }),
+  );
+  await act(async () => fireEvent.press(view.getByText('Fixture')));
+  expect(client.createOffRamp).toHaveBeenCalledWith(expect.objectContaining({ amountExact: '20.00' }));
+  expect(view.getByText(/1.123456789012 NATIVE/)).toBeTruthy();
+  expect(client.signRampAction).not.toHaveBeenCalled();
+  act(() =>
+    view
+      .UNSAFE_getAllByType(Modal)
+      .find((modal) => modal.props.visible)
+      .props.onRequestClose(),
+  );
+  await act(async () => fireEvent.press(view.getByText('Reopen ramp')));
+  expect(view.getByText(/1.123456789012 NATIVE/)).toBeTruthy();
+  expect(client.signRampAction).not.toHaveBeenCalled();
+  await act(async () => fireEvent.press(view.getByText('Authorize')));
+  expect(client.signRampAction).toHaveBeenCalledTimes(1);
+  expect(view.queryByText('Authorize')).toBeNull();
+  await view.unmountAsync();
 });

@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { View, StyleSheet, TouchableWithoutFeedback } from 'react-native';
 import { usePollar } from '../../context';
-import { TxHistoryModalTemplate } from './TxHistoryModalUI'; // Bypassing cache
+import { TxHistoryModalTemplate } from './TxHistoryModalUI';
 
 export interface TxHistoryModalProps {
   onClose: () => void;

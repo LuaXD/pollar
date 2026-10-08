@@ -12,6 +12,13 @@ import { ActivityIndicator, Text } from 'react-native';
 import type { PollarConfig, PollarStyles } from './types';
 import type { FeatureName } from './components/FeaturePanel';
 import { FeatureModal } from './components/FeatureModal';
+import { ModalErrorBoundary } from './components/commons';
+import { AppKycFlow } from './components/kyc-modal/AppKycFlow';
+import { LoginModal } from './components/login-modal/LoginModal';
+import { RampWidget } from './components/ramp-widget/RampWidget';
+import { TransactionModal } from './components/transaction-modal/TransactionModal';
+import { TxHistoryModal } from './components/tx-history-modal/TxHistoryModal';
+import { WalletBalanceModal } from './components/wallet-balance-modal/WalletBalanceModal';
 import { PollarUIProvider } from './components/layout';
 
 export interface NativePlatformAdapters {
@@ -179,6 +186,11 @@ function ClientProvider({
   const client = runtime.client;
   const [, update] = useState(0);
   const [modal, setModal] = useState<FeatureName | null>(null);
+  const [kycOptions, setKycOptions] = useState<{
+    country?: string;
+    level?: 'basic' | 'intermediate' | 'enhanced';
+    onApproved?: () => void;
+  }>({});
   const [ramp, setRamp] = useState<NativeRampState | null>(null);
   const [remote, setRemote] = useState<PollarConfig>(appConfig ?? emptyConfig);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(appConfig ? 'ready' : 'loading');
@@ -316,7 +328,10 @@ function ClientProvider({
     openEnabledAssetsModal: () => open('assets'),
     openTxHistoryModal: () => open('history'),
     openSessionsModal: () => open('sessions'),
-    openKycModal: () => open('kyc'),
+    openKycModal: (options = {}) => {
+      setKycOptions(options);
+      open('kyc');
+    },
     openRampModal: () => open('ramp'),
     openRampWidget: () => open('ramp'),
     openSwapModal: () => open('swap'),
@@ -327,7 +342,25 @@ function ClientProvider({
     <Context.Provider value={value}>
       <PollarUIProvider theme={value.styles.theme === 'dark' ? 'dark' : 'light'}>
         {children}
-        <FeatureModal feature={modal} visible={modal !== null} onClose={close} />
+        {modal && (
+          <ModalErrorBoundary onClose={close}>
+            {modal === 'authentication' ? (
+              <LoginModal onClose={close} />
+            ) : modal === 'kyc' ? (
+              <AppKycFlow onClose={close} {...kycOptions} />
+            ) : modal === 'ramp' ? (
+              <RampWidget onClose={close} />
+            ) : modal === 'transactions' ? (
+              <TransactionModal onClose={close} />
+            ) : modal === 'history' ? (
+              <TxHistoryModal onClose={close} />
+            ) : modal === 'wallet' ? (
+              <WalletBalanceModal onClose={close} />
+            ) : (
+              <FeatureModal feature={modal} onClose={close} />
+            )}
+          </ModalErrorBoundary>
+        )}
       </PollarUIProvider>
     </Context.Provider>
   );
