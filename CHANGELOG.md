@@ -25,9 +25,10 @@
 > Third, the Send, Swap, Receive, Sessions and Wallet balance modals follow the
 > new design, and the SDK is licensed under Apache-2.0 from this release on.
 >
-> No change is needed in an app that uses the built-in components. Three
-> behaviour changes and some template props affect apps that drive the KYC
-> endpoints or the templates themselves - see [UPGRADE.md](./UPGRADE.md).
+> No change is needed in an app that uses the built-in components. Behaviour
+> changes in the KYC endpoints and new required template props affect apps that
+> drive the KYC endpoints or the templates themselves - see
+> [UPGRADE.md](./UPGRADE.md).
 
 ### `@pollar/core`
 
@@ -284,6 +285,17 @@ expired`) and `reviewReason`, which say why a `pending` is pending.
   the web one: locked routes, the step modals (`RequirementFormModal`,
   `RegistryCheckModal`, `ProviderRegistrationModal`) and the re-quote after a
   step.
+- **Fix: `isAuthenticated` and `walletAddress` read the session's
+  `wallet.address`.** They read `wallet.publicKey`, which the session has not
+  carried since core 0.9.0, so `isAuthenticated` stayed `false` for a signed-in
+  user.
+- The package type-checks against the core it ships with: wallet login goes
+  through `login({ provider })`, `refreshBalance()` takes no argument (core
+  ignored the old `publicKey`), `buildTx` / `signAndSubmitTx` return core's
+  outcomes, the login and transaction modals label every auth and transaction
+  step core emits, and `createPollarAdapterHook` uses `PollarAdapter`. Its
+  `tsconfig` resolves `@pollar/core` through the workspace instead of a path into
+  core's sources.
 
 ### Wallet modals redesign (`@pollar/react`)
 
@@ -291,27 +303,30 @@ expired`) and `reviewReason`, which say why a `pending` is pending.
   Paste action for the destination, and a submit button that stays disabled
   until the amount is positive and within the available balance.
 - **Swap**: redesigned asset selection, balance-aware Max and a button that
-  reverses the direction.
+  reverses the direction. A buy token the app has not enabled can still be added
+  by code and issuer.
 - **Receive**: a framed QR with the Pollar mark, a network badge and the address
   with its copy action. The not-ready notice from the provisioning work sits
   between the QR and the address.
 - **Wallet balance**: refreshed rows that use the asset metadata (name) the app
-  enabled.
+  enabled, with the issuer and its copy action, and the wallet address with its
+  copy action above the list.
 - **Sessions**: the current device is shown apart from the others, and a
   failed sign-out of another device shows an error instead of nothing.
-- **Behaviour change: Send, Receive and Wallet balance no longer show a network
-  picker.** They open on the app's first configured chain (`useChains()` order).
-  A multichain app whose users need the second chain in these modals should
-  keep 0.11.3's behaviour in mind before promoting this candidate.
+- Send, Receive and Wallet balance keep the network picker at the top: it
+  renders when the app has two or more chains, so a single-chain app shows none.
+- Fix: a session's device label is split without a regex that backtracks
+  polynomially on a long run of spaces (CodeQL `js/polynomial-redos`); the label
+  comes from the API.
 - **Template props.** Apps that mount the templates themselves must pass the
   new handlers: `SendModalTemplateProps.onMax` and `onPaste`,
   `SwapModalTemplateProps.onReverse` and `onMax`,
   `SessionsModalTemplateProps.revokeError`, and
   `RampWidgetTemplateProps.kycRequired` (the locked routes) and
-  `onVerifyRoute`. `chains`, `walletAddress` and `onSelectChain` become optional
-  on the Send, Receive and Wallet balance templates, and the built-in modals no
-  longer pass them. `WalletBalanceModalTemplateProps` gains an optional
-  `assetMetadata`.
+  `onVerifyRoute`. `chains` and `onSelectChain` become optional on the Send,
+  Receive and Wallet balance templates (pass both to show the picker), as does
+  `walletAddress` on Send, which no longer shows the sender address.
+  `WalletBalanceModalTemplateProps` gains an optional `assetMetadata`.
 
 ### License and packaging
 
@@ -370,9 +385,8 @@ it always did, and `existsOnStellar` keeps the value it always had on a first
 login (`false`, since it is read before the account is created). What changes
 for an un-updated client is timing: a payment attempted in the first seconds
 after signup now returns `SDK_WALLET_NOT_READY` instead of succeeding. An app
-that calls `pollKycStatus()` itself, mounts the Send, Swap, Sessions or ramp
-templates itself, or relies on the network picker in the Send, Receive or
-Wallet balance modals should read [UPGRADE.md](./UPGRADE.md).
+that calls `pollKycStatus()` itself or mounts the Send, Swap, Sessions or ramp
+templates itself should read [UPGRADE.md](./UPGRADE.md).
 
 ## 0.11.3
 

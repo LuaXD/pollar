@@ -44,20 +44,20 @@ redistributions.
 
 Only for apps that mount the templates themselves:
 
-| Template                          | Change                                                                               |
-| --------------------------------- | ------------------------------------------------------------------------------------ |
-| `SendModalTemplateProps`          | new required `onMax`, `onPaste`; `chains`, `walletAddress`, `onSelectChain` optional |
-| `SwapModalTemplateProps`          | new required `onReverse`, `onMax`                                                    |
-| `SessionsModalTemplateProps`      | new required `revokeError` (`string \| null`)                                        |
-| `RampWidgetTemplateProps`         | new required `kycRequired` (`RampQuoteRequirement[]`), `onVerifyRoute`               |
-| `ReceiveModalTemplateProps`       | `chains`, `onSelectChain` optional                                                   |
-| `WalletBalanceModalTemplateProps` | `chains`, `onSelectChain` optional; new optional `assetMetadata`                     |
-| `KycModalTemplateProps`           | new optional `reviewReason`, `processing`, `error`, `onStartAgain`                   |
+| Template                          | Change                                                                                                                                    |
+| --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `SendModalTemplateProps`          | new required `onMax`, `onPaste`; `chains`, `walletAddress`, `onSelectChain` optional (pass `chains` + `onSelectChain` to show the picker) |
+| `SwapModalTemplateProps`          | new required `onReverse`, `onMax`                                                                                                         |
+| `SessionsModalTemplateProps`      | new required `revokeError` (`string \| null`)                                                                                             |
+| `RampWidgetTemplateProps`         | new required `kycRequired` (`RampQuoteRequirement[]`), `onVerifyRoute`                                                                    |
+| `ReceiveModalTemplateProps`       | `chains`, `onSelectChain` optional (pass both to show the picker)                                                                         |
+| `WalletBalanceModalTemplateProps` | `chains`, `onSelectChain` optional (pass both to show the picker); new optional `assetMetadata`                                           |
+| `KycModalTemplateProps`           | new optional `reviewReason`, `processing`, `error`, `onStartAgain`                                                                        |
 
-**Behaviour change: the Send, Receive and Wallet balance modals no longer show
-a network picker.** They open on the app's first configured chain. In a
-multichain app, a user who needs another chain in these modals cannot switch
-to it from the built-in components in this candidate.
+The built-in Send, Receive and Wallet balance modals keep the network picker:
+it renders when the app has two or more chains, so a single-chain app shows
+none. A template you mount yourself shows it only when you pass both `chains`
+and `onSelectChain`.
 
 ### Wallet provisioning
 

@@ -14,8 +14,8 @@ This repository is managed with [Turborepo](https://turbo.build/repo) and contai
 > route still needs (`requirementsRequired`), and `@pollar/core` and `@pollar/react` complete every
 > step type - KYC, forms, SEGIP registry checks and provider registration - from `<RampWidget>` or
 > from the app's own KYC flow (`openKycModal()`). The Send, Swap, Receive, Sessions and Wallet
-> balance modals follow the **new design**; Send, Receive and Wallet balance open on the app's first
-> chain without a network picker. Apps that mount those templates or call `pollKycStatus()` should
+> balance modals follow the **new design**, keeping the network picker in a multichain app. Apps that
+> mount those templates or call `pollKycStatus()` should
 > read [UPGRADE.md](./UPGRADE.md). From this release the SDK is licensed under **Apache-2.0**.
 >
 > **Wallet provisioning.** The platform now creates an end-user's Stellar
@@ -158,7 +158,7 @@ drop-in authentication in React applications.
   points
 - `<WalletButton>` — ready-made button that opens the authentication modal; dropdown includes Send, Receive, balance,
   and tx history; shows an inline spinner during in-progress transactions
-- `<SendModal>` — full send flow in a single modal on the app's first chain: asset picker, amount with Max, destination
+- `<SendModal>` — full send flow in a single modal: network picker (multichain apps), asset picker, amount with Max, destination
   with Paste, and inline transaction status (build → sign → success/error)
 - `<ReceiveModal>` — displays the connected wallet address as a QR code with copy-to-clipboard; no external QR
   dependency required
@@ -174,7 +174,7 @@ drop-in authentication in React applications.
 - `<TxHistoryModal>` — paginated multichain transaction history viewer with auto-fetch on open, a network picker that
   filters server-side, per-chain explorer links (stellar.expert for Stellar, explorer.solana.com for Solana), and the
   unified `{ amount, unit }` fee per row
-- `<WalletBalanceModal>` — wallet balances on the app's first chain; an unreadable chain shows a dash, never `0`
+- `<WalletBalanceModal>` — multichain wallet balances (Stellar, Polygon, Solana): a `<ChainSelect>` picks the network and the rows are scoped to it; an unreadable chain shows a dash, never `0`
 - `<EnabledAssetsModal>` — the app's dashboard-enabled assets for the network picked in the header, with per-asset
   trustline state; establish/remove trustlines (Stellar only — other chains are informational)
 - `<DistributionRulesModal>` — manage the wallet's distribution rules
