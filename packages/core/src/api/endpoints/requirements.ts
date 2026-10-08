@@ -80,6 +80,14 @@ export async function getRegistryCheck(api: PollarApiClient, optionId: string): 
  * every field. A split that does not rebuild the verified last name throws
  * `KYC_REGISTRY_NAME_MISMATCH`.
  */
+/**
+ * A registry check and a provider registration each wait on a vendor call (SEGIP,
+ * customers/create) that can take well over the 10s default; only these two calls
+ * get the longer budget, like startKyc.
+ */
+const VENDOR_CALL_TIMEOUT_MS = 30_000;
+const vendorCallHeaders = { 'x-pollar-timeout-ms': String(VENDOR_CALL_TIMEOUT_MS) };
+
 export async function submitRegistryCheck(
   api: PollarApiClient,
   optionId: string,
@@ -88,6 +96,7 @@ export async function submitRegistryCheck(
   const { data, error } = await api.POST('/requirements/registry/{optionId}', {
     params: { path: { optionId } },
     body: edit,
+    headers: vendorCallHeaders,
   });
   if (!data?.content || error) throw requirementApiError(error, 'Failed to submit the registry check');
   return data.content;
@@ -115,6 +124,7 @@ export async function submitProviderRegistration(
 ): Promise<ProviderRegistrationSubmitted> {
   const { data, error } = await api.POST('/requirements/registration/{corridorId}', {
     params: { path: { corridorId } },
+    headers: vendorCallHeaders,
   });
   if (!data?.content || error) throw requirementApiError(error, 'Failed to register with the provider');
   return data.content;
