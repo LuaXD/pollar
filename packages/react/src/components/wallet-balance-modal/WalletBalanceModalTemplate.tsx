@@ -1,7 +1,7 @@
 'use client';
 
 import { EnabledAssetRecord, StellarNetwork, WalletBalanceRecord, WalletBalanceState, WalletChain } from '@pollar/core';
-import { resolveChain } from '../ChainSelect';
+import { ChainSelect, resolveChain } from '../ChainSelect';
 import { BusyOverlay, CopyButton, cropAddress, PollarModalFooter, RefreshIcon, useStickyData } from '../commons';
 import { buildModalCssVars, type ModalStyleOverrides } from '../modal-theme';
 
@@ -73,7 +73,10 @@ function BalanceItem({
           <AssetIcon code={record.code} />
           <span className="pollar-bal-asset-copy">
             <span className="pollar-bal-asset">{record.code}</span>
-            <span className="pollar-bal-asset-secondary">{secondary}</span>
+            <span className="pollar-bal-asset-secondary">
+              {secondary}
+              {record.issuer && <CopyButton value={record.issuer} label="Copy issuer address" className="pollar-copy-btn-sm" />}
+            </span>
           </span>
         </span>
         {faucet && (
@@ -108,12 +111,14 @@ export interface WalletBalanceModalTemplateProps {
   walletAddress: string;
   /** Asset catalog metadata, when already available in the provider. */
   assetMetadata?: EnabledAssetRecord[];
-  /** @deprecated Kept for compatibility; the network picker is hidden in the new UI. */
+  /**
+   * The networks the user holds a wallet on, in the app's configured order.
+   * The picker renders only with two or more, so a single-chain app shows none.
+   */
   chains?: WalletChain[];
   selectedChain: WalletChain | null;
   /** testnet vs mainnet - gates the Solana devnet faucet hint. */
   network: StellarNetwork;
-  /** @deprecated Kept for compatibility; network selection is hidden in the new UI. */
   onSelectChain?: (chain: WalletChain) => void;
   onRefresh: () => void;
   onClose: () => void;
@@ -126,8 +131,10 @@ export function WalletBalanceModalTemplate({
   walletBalance,
   walletAddress,
   assetMetadata = [],
+  chains,
   selectedChain,
   network,
+  onSelectChain,
   onRefresh,
   onClose,
 }: WalletBalanceModalTemplateProps) {
@@ -168,19 +175,16 @@ export function WalletBalanceModalTemplate({
         </div>
       </div>
 
-      {/*walletAddress && (
-        <div className="pollar-bal-summary">
-          <div className="pollar-bal-summary-topline">
-            <span className="pollar-bal-summary-label">TOTAL BALANCE</span>
-            <span className="pollar-bal-summary-address">
-              {cropAddress(walletAddress)}
-              <CopyButton value={walletAddress} label="Copy wallet address" className="pollar-bal-summary-copy" />
-            </span>
-          </div>
-          <div className="pollar-bal-summary-value">{'\u2014'}</div>
-          <span className="pollar-bal-summary-unavailable">Fiat valuation unavailable</span>
+      {chains && onSelectChain && (
+        <ChainSelect value={selectedChain} options={chains} onChange={onSelectChain} disabled={isLoading} />
+      )}
+
+      {walletAddress && (
+        <div className="pollar-address-row">
+          <span className="pollar-address">{cropAddress(walletAddress)}</span>
+          <CopyButton value={walletAddress} label="Copy wallet address" />
         </div>
-      )*/}
+      )}
 
       {/* First load only - a refresh keeps the old list under the overlay. */}
       {isLoading && !data && (

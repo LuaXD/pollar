@@ -2,6 +2,7 @@
 
 import { TransactionState, WalletBalanceRecord, WalletChain, WalletId } from '@pollar/core';
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { ChainSelect } from '../ChainSelect';
 import { PollarModalFooter, RefreshIcon } from '../commons';
 import { TxStatusView } from '../transaction-modal/TxStatusView';
 import { buildModalCssVars, type ModalStyleOverrides } from '../modal-theme';
@@ -156,7 +157,10 @@ export interface SendModalTemplateProps {
   assets: WalletBalanceRecord[];
   selectedAsset: WalletBalanceRecord | null;
   selectedChain: WalletChain | null;
-  /** @deprecated Kept for compatibility; network selection is hidden in the new UI. */
+  /**
+   * The networks the user can send from, in the app's configured order. The
+   * picker renders only with two or more, so a single-chain app shows none.
+   */
   chains?: WalletChain[];
   /** @deprecated Kept for compatibility; the sender address is no longer shown. */
   walletAddress?: string;
@@ -173,7 +177,6 @@ export interface SendModalTemplateProps {
    * keeps compiling.
    */
   notReadyReason?: string | null;
-  /** @deprecated Kept for compatibility; network selection is hidden in the new UI. */
   onSelectChain?: (chain: WalletChain) => void;
   amount: string;
   destination: string;
@@ -213,6 +216,8 @@ export function SendModalTemplate({
   selectedChain,
   canSendOnChain,
   notReadyReason,
+  chains,
+  onSelectChain,
   amount,
   destination,
   formError,
@@ -306,6 +311,11 @@ export function SendModalTemplate({
       {/* Form step */}
       {step === 'form' && (
         <>
+          {/* Network selector - drives the asset list below */}
+          {chains && onSelectChain && (
+            <ChainSelect value={selectedChain} options={chains} onChange={onSelectChain} disabled={isLoadingBalance} />
+          )}
+
           {!canSendOnChain && <div className="pollar-modal-empty">Sending is not available on this network yet.</div>}
           {canSendOnChain && notReadyReason && <div className="pollar-modal-empty">{notReadyReason}</div>}
 

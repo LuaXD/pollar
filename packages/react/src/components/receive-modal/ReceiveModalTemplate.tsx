@@ -2,6 +2,7 @@
 
 import { WalletChain } from '@pollar/core';
 import { QRCode } from '../../lib/qr-code';
+import { ChainSelect } from '../ChainSelect';
 import { PollarModalFooter } from '../commons';
 import { PollarLogo } from '../PollarLogo';
 import { buildModalCssVars, type ModalStyleOverrides } from '../modal-theme';
@@ -20,10 +21,12 @@ export interface ReceiveModalTemplateProps {
   styleOverrides?: ModalStyleOverrides;
   /** Address of the wallet on {@link selectedChain}. */
   walletAddress: string;
-  /** @deprecated Kept for compatibility; the network picker is hidden in the new UI. */
+  /**
+   * The networks the user holds an address on, in the app's configured order.
+   * The picker renders only with two or more, so a single-chain app shows none.
+   */
   chains?: WalletChain[];
   selectedChain: WalletChain | null;
-  /** @deprecated Kept for compatibility; network selection is hidden in the new UI. */
   onSelectChain?: (chain: WalletChain) => void;
   copied: boolean;
   /**
@@ -44,7 +47,9 @@ export function ReceiveModalTemplate({
   accentColor,
   styleOverrides,
   walletAddress,
+  chains,
   selectedChain,
+  onSelectChain,
   copied,
   notReadyReason,
   onCopy,
@@ -72,6 +77,9 @@ export function ReceiveModalTemplate({
           </button>
         </div>
       </div>
+
+      {/* Network selector - drives the address and QR below */}
+      {chains && onSelectChain && <ChainSelect value={selectedChain} options={chains} onChange={onSelectChain} />}
 
       {/* QR code */}
       {walletAddress ? (

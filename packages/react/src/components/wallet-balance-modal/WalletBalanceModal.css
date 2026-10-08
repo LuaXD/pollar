@@ -161,6 +161,11 @@
   white-space: nowrap;
 }
 
+.pollar-bal-asset-secondary .pollar-copy-btn {
+  margin-left: 0.25rem;
+  vertical-align: middle;
+}
+
 .pollar-bal-faucet-hint {
   padding-left: 2.625rem;
   color: var(--pollar-muted);

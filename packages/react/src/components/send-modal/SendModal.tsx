@@ -279,9 +279,11 @@ export function SendModal({ onClose }: SendModalProps) {
         txTitle={txTitle}
         assets={sortedAssets}
         selectedAsset={selectedAsset}
+        chains={chains}
         selectedChain={selectedChain}
         canSendOnChain={canSendOnChain}
         notReadyReason={notReadyReason}
+        onSelectChain={setSelectedChain}
         amount={amount}
         destination={destination}
         formError={formError}
