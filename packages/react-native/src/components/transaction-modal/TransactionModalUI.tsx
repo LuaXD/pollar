@@ -24,9 +24,24 @@ const STATUS_MESSAGES: Record<TransactionState['step'], string> = {
   building: 'Building transaction…',
   built: 'Ready to sign and send',
   signing: 'Signing and sending transaction…',
+  signed: 'Signed — ready to submit',
+  submitting: 'Submitting transaction…',
+  submitted: 'Submitted — waiting for confirmation…',
+  'signing-submitting': 'Signing and submitting transaction…',
+  'building-signing-submitting': 'Processing transaction…',
   success: 'Transaction sent successfully',
   error: 'Transaction failed',
 };
+
+/** Steps that are in-flight work: the status banner shows a spinner. */
+const IN_FLIGHT_STEPS = new Set<TransactionState['step']>([
+  'building',
+  'signing',
+  'submitting',
+  'submitted',
+  'signing-submitting',
+  'building-signing-submitting',
+]);
 
 export function TransactionModalTemplate({
   theme,
@@ -187,7 +202,7 @@ export function TransactionModalTemplate({
 
         <ModalStatusBanner
           message={STATUS_MESSAGES[transaction.step] || ''}
-          status={isError ? 'ERROR' : isSigning || transaction.step === 'building' ? 'LOADING' : isSuccess ? 'SUCCESS' : 'NONE'}
+          status={isError ? 'ERROR' : IN_FLIGHT_STEPS.has(transaction.step) ? 'LOADING' : isSuccess ? 'SUCCESS' : 'NONE'}
         />
 
         <PollarModalFooter />

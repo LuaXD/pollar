@@ -5,11 +5,7 @@
     "outDir": "dist",
     "rootDir": "src",
     "resolveJsonModule": true,
-    "allowSyntheticDefaultImports": true,
-    "baseUrl": ".",
-    "paths": {
-      "@pollar/core": ["../core/src/index"]
-    }
+    "allowSyntheticDefaultImports": true
   },
   "include": ["src"]
 }

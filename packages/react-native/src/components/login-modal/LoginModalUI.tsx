@@ -15,8 +15,11 @@ const AUTH_STATE_MESSAGES: Record<AuthState['step'], string> = {
   verifying_email_code: 'Verifying…',
   opening_oauth: 'Redirecting…',
   connecting_wallet: 'Connecting wallet…',
+  signing_wallet_challenge: 'Confirm in your wallet…',
   wallet_not_installed: 'Wallet not installed',
   authenticating_wallet: 'Signing in with wallet…',
+  creating_passkey: 'Waiting for passkey…',
+  deploying_smart_account: 'Creating your wallet…',
   authenticating: 'Authenticating…',
   authenticated: 'Welcome!',
   error: '',
@@ -29,7 +32,10 @@ function authStateToStatus(step: AuthState['step']): StateStatus {
     'verifying_email_code',
     'opening_oauth',
     'connecting_wallet',
+    'signing_wallet_challenge',
     'authenticating_wallet',
+    'creating_passkey',
+    'deploying_smart_account',
     'authenticating',
   ];
   const success: AuthState['step'][] = ['authenticated', 'entering_code'];

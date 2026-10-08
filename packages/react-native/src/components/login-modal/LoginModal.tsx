@@ -50,7 +50,7 @@ export function LoginModal({ onClose }: LoginModalProps) {
   }
 
   function handleWalletConnect(type: WalletType) {
-    getClient().loginWallet(type);
+    getClient().login({ provider: type });
   }
 
   function handleVerifyCode(code: string) {
