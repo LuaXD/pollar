@@ -90,6 +90,8 @@ export function RegistryCheckModal({ optionId, progress, onClose, onApproved }: 
     } catch (e) {
       if (!mounted.current) return;
       const code = errorCode(e);
+      // A check recorded while this screen was open (a slow answer the client gave up on) is the approval.
+      if (code === 'SDK_KYC_ALREADY_APPROVED') return onApproved();
       if (code === 'KYC_REGISTRY_NAME_MISMATCH') {
         setError(copy.nameMismatch.replace('{full}', [prefill.surname1, prefill.surname2].filter(Boolean).join(' ')));
       } else if (code === 'SDK_KYC_UNDER_REVIEW') setReview(true);
