@@ -589,6 +589,58 @@ test('ramp uses real quotes and preserves a pending transaction across panel rem
   expect(client.createOnRamp).toHaveBeenCalledTimes(1);
 });
 
+test('a native replacement quote shows exact changed totals and requires another confirmation', async () => {
+  const { PollarApiError } = jest.requireActual('@pollar/core');
+  const client = fakeClient();
+  client.auth = { step: 'authenticated', verified: true, session: { clientSessionId: 'session' } };
+  const original = {
+    quoteId: 'original',
+    provider: 'Bank',
+    rail: 'QR',
+    fee: 0,
+    feeCurrency: 'BOB',
+    requiredFields: [],
+    fiatAmount: 100,
+    route: { routeId: 'fixture:route' },
+    expiresAt: new Date(Date.now() + 900000).toISOString(),
+    terms: {
+      fiatAmount: '100',
+      fiatCurrency: 'BOB',
+      cryptoAmount: '9.97',
+      assetCode: 'USDC',
+      assetChain: 'STELLAR',
+      assetIssuer: null,
+      feeAmount: '0',
+      feeCurrency: 'BOB',
+    },
+  };
+  const replacement = { ...original, quoteId: 'replacement', fiatAmount: 110, terms: { ...original.terms, fiatAmount: '110' } };
+  client.getRampsQuote.mockResolvedValue({ quotes: [original] });
+  client.createOnRamp
+    .mockRejectedValueOnce(new PollarApiError('SDK_RAMPS_QUOTE_CHANGED', { replacementQuote: replacement }))
+    .mockResolvedValue({ txId: 'accepted-replacement', provider: 'Bank', status: 'pending' });
+  const view = await renderAsync(
+    <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
+      <RampPanel />
+    </PollarProvider>,
+  );
+  fireEvent.changeText(view.getByLabelText('Country code (e.g. MX)'), 'BO');
+  fireEvent.changeText(view.getByLabelText('Currency (e.g. MXN)'), 'BOB');
+  fireEvent.changeText(view.getByLabelText('Amount'), '100');
+  await act(async () => fireEvent.press(view.getByText('Get ramp quotes')));
+  fireEvent.press(view.getByText('Select Bank'));
+  expect(view.getByText(/100 BOB · 9.97 USDC/)).toBeTruthy();
+  await act(async () => fireEvent.press(view.getByText('Confirm onramp')));
+  expect(view.getByText(/110 BOB · 9.97 USDC/)).toBeTruthy();
+  expect(view.getByText(/Review the new totals/)).toBeTruthy();
+  expect(client.createOnRamp).toHaveBeenCalledTimes(1);
+  await act(async () => fireEvent.press(view.getByText('Confirm onramp')));
+  expect(client.createOnRamp).toHaveBeenCalledTimes(2);
+  expect(client.createOnRamp).toHaveBeenLastCalledWith(
+    expect.objectContaining({ quoteId: 'replacement', amount: 110, amountExact: '110' }),
+  );
+});
+
 test('registered future-chain route drives the native widget and resumes without signing again', async () => {
   const core = jest.requireActual('@pollar/core');
   const client = fakeClient();

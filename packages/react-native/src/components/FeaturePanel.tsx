@@ -954,6 +954,12 @@ export function RampPanel() {
               <Label>
                 {q.provider} · {q.rail} · Fee {q.fee} {q.feeCurrency}
               </Label>
+              {q.terms && (
+                <Label>
+                  {q.terms.fiatAmount} {q.terms.fiatCurrency} · {q.terms.cryptoAmount} {q.terms.assetCode}
+                  {'\n'}Includes {q.terms.feeAmount} {q.terms.feeCurrency} fee
+                </Label>
+              )}
               <ActionButton
                 title={'Select ' + q.provider}
                 onPress={() => {
