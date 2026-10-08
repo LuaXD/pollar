@@ -2,16 +2,32 @@
 
 ## 0.11.4
 
-> Patch release, additive. The platform now creates an end-user's Stellar
-> account in the background instead of inside `POST /auth/login`, so a login
-> returns as soon as the wallet exists rather than waiting on the network. This
-> release is the SDK half of that: the wallet reports where its on-chain account
-> stands, the client watches it until the account lands, and the React modals
-> say so rather than letting the first payment fail as an opaque network error.
+> First candidate: `0.11.4-rc.1` (`@pollar/core` and `@pollar/react`, on the
+> `next` tag).
+>
+> Three pieces of work. The platform now creates an end-user's Stellar account
+> in the background instead of inside `POST /auth/login`, so a login returns as
+> soon as the wallet exists rather than waiting on the network. This release is
+> the SDK half of that: the wallet reports where its on-chain account stands,
+> the client watches it until the account lands, and the React modals say so
+> rather than letting the first payment fail as an opaque network error.
 > Alongside it, two things that were logging people out: a DPoP proof the server
 > rejected over clock skew is now re-signed instead of tearing the session down,
 > and every request carries `x-pollar-sdk` so a stale SDK is visible from the
-> dashboard. Nothing to migrate - see [UPGRADE.md](./UPGRADE.md).
+> dashboard.
+>
+> Second, KYC by ramp corridor: a ramp quote reports the first requirement step a
+> route still needs (`requirementsRequired`) instead of quoting it, and the
+> SDK can complete every step type the platform serves - KYC, forms, SEGIP
+> registry checks and provider registration - from the ramp widget or from an
+> app's own KYC flow.
+>
+> Third, the Send, Swap, Receive, Sessions and Wallet balance modals follow the
+> new design, and the SDK is licensed under Apache-2.0 from this release on.
+>
+> No change is needed in an app that uses the built-in components. Three
+> behaviour changes and some template props affect apps that drive the KYC
+> endpoints or the templates themselves - see [UPGRADE.md](./UPGRADE.md).
 
 ### `@pollar/core`
 
@@ -164,8 +180,162 @@ wallet holds 1.8773182)`. Now worded like the anchor and Bridge failures beside
   start) as no reason to block, for the same reason: guessing Stellar there is
   the same wrong answer, just earlier.
 
+### KYC by ramp corridor
+
+A ramp corridor (provider, country, direction) can require ordered steps before
+it is quoted: every step is required, in order, and each step accepts any of its
+equivalent options. Step types are `KYC`, `FORM`, `REGISTRY_CHECK` (SEGIP,
+through Stereum) and `PROVIDER_REGISTRATION` (Stereum `customers/create`). An
+app's own KYC, configured in the dashboard, uses the same model. This needs an
+sdk-api that serves `/v2/requirements` (pollar-platform DEV-24).
+
+#### `@pollar/core`
+
+- **The v2 ramp quote types `requirementsRequired` and `unavailable`.** A route
+  whose corridor has a step the user has not completed is not quoted: it comes
+  back in `requirementsRequired` with the first pending step (`position`,
+  `completed` of `total`, `type`, `optionId`, `corridorId`, `status`,
+  `reviewReason`). `unavailable` lists the providers that serve the route but
+  failed to quote it just now, with the error code. Both are typed on the
+  response; `RampQuoteRequirement` is the step type.
+- **New requirement endpoints**, on the client and as standalone functions:
+  `getAppRequirements()` (`GET /requirements`, the app's own steps and the first
+  pending one), `getRequirementForm(formId)` / `submitRequirementForm(formId,
+answers)`, `getRegistryCheck(optionId)` / `submitRegistryCheck(optionId,
+edit)` and `getProviderRegistration(corridorId)` /
+  `submitProviderRegistration(corridorId)`. Types: `AppRequirements`,
+  `RequirementForm`, `RequirementFormAnswers`, `RequirementFormSubmitted`,
+  `RegistryCheck`, `RegistryCheckEdit`, `ProviderRegistration` and their
+  `...Submitted` results.
+- **Corridor-scoped KYC.** `getKycStatus(providerId?, corridorId?)`,
+  `getKycProviders(country, corridorId?)`, `resolveKyc(providerId, level?,
+country?, corridorId?, idempotencyKey?)` and the poll options take a
+  `corridorId`. A status read by corridor answers for the corridor's KYC step,
+  whichever option the user passed. `/kyc/status` with neither id answers for
+  the app's own steps and names the `pendingStep`.
+- **Typed KYC errors.** `getKycStatus`, `getKycProviders` and `startKyc` throw a
+  `PollarApiError` carrying the backend code (`SDK_KYC_UNDER_REVIEW`,
+  `SDK_KYC_ALREADY_APPROVED`, ...) instead of a plain `Error`. The message is
+  still the code, so code that reads `err.message` keeps working.
+- **`KycStatus` gains `'expired'`**, and a status read carries `decisionStatus`
+  (`KycDecisionStatus`: `pending | manual_review | approved | rejected |
+expired`) and `reviewReason`, which say why a `pending` is pending.
+- **New: `pollKycDecision(providerId, opts?)`** polls until the decision
+  settles and returns the whole read: approved, rejected, expired, held for
+  manual review, or vendor-approved and still being recorded.
+- **Behaviour change: `pollKycStatus()` returns when the decision settles, not
+  only on `approved` or `rejected`.** It is now `pollKycDecision()` reduced to a
+  status, so a session held for manual review returns `'pending'` and an expired
+  one returns `'expired'`, where it used to keep polling until the timeout.
+- `resolveKyc()` treats `SDK_KYC_ALREADY_APPROVED` as approved and forwards an
+  `idempotencyKey`, so a retry after a vendor failure reuses the session it
+  already created instead of billing a second one.
+- `POST /kyc/start` gets a 30 s budget. Creating a session waits on the KYC
+  vendor, which can take longer than the 10 s request default; the client then
+  dropped a start the server finished, and the user's retry raced it. Every
+  other request keeps 10 s.
+
+#### `@pollar/react`
+
+- **The ramp route list shows routes locked by a requirement step,** with a
+  Verify action, instead of dropping them. A country whose only route needs KYC
+  no longer reads as "No ramp providers available".
+- **Each step type opens its own modal** from the locked route or from a
+  start-gate 409: `KYC` opens `<KycModal>` on the option the step names, `FORM`
+  opens `<RequirementFormModal>` (prefilled with the user's previous answers,
+  per-field errors from `KYC_FORM_INVALID_ANSWERS`, labels in the device
+  language, es or en), `REGISTRY_CHECK` opens `<RegistryCheckModal>` (the
+  verified identity prefilled; only the surname split and the CI complement are
+  editable) and `PROVIDER_REGISTRATION` opens `<ProviderRegistrationModal>`
+  (what the provider receives, registered on the user's consent). The three new
+  modals are exported for apps that build their own route list.
+- **After a step is completed the widget quotes again** for the same amount,
+  direction, country and collected fields, and returns to the route list with a
+  notice. It no longer retries the quote it held before the step: that quote can
+  expire or change price while the user verifies, so an order only starts on a
+  quote the user has seen.
+- **A provider that serves the route but is down is named as down.** When no
+  quote comes back and the provider is listed in `unavailable`, the widget says
+  it is temporarily unavailable instead of "No ramp providers available for
+  <country> yet".
+- **`openKycModal()` without a provider or corridor walks the app's own steps**
+  (`AppKycFlow`): it shows only the pending step, reads the steps again after
+  each one, and calls `onApproved` once all are complete. An app without steps
+  keeps the previous behaviour: the modal lists its enabled options.
+  `openKycModal()` and `<KycModal>` also take `corridorId` and `providerId`;
+  with `providerId` the modal starts that option directly.
+- **`<KycModal>` says what happened instead of a generic error:** not
+  configured, vendor down (retry reuses the idempotency key), session expired
+  (Start again, with a fresh key), option gone, held for manual review (with the
+  reason; `DUPLICATE_DOCUMENT` has its own message), vendor-approved and still
+  being recorded, and rejected. A second start while one is in flight is
+  ignored. The hosted iframe and redirect layout is responsive and offers to
+  open the verification in a new tab.
+- `KycModalTemplateProps` gains optional `reviewReason`, `processing`, `error`
+  and `onStartAgain`.
+- Fix: the requirement form and the app KYC flow no longer stay loading in
+  development, where React mounts components twice.
+
+#### `@pollar/react-native`
+
+- The package now lives in this repo. It is versioned on its own (`0.5.3`) and
+  is not bumped by this release.
+- A hosted `KycModal` and a real `RampWidget` with the same requirement gate as
+  the web one: locked routes, the step modals (`RequirementFormModal`,
+  `RegistryCheckModal`, `ProviderRegistrationModal`) and the re-quote after a
+  step.
+
+### Wallet modals redesign (`@pollar/react`)
+
+- **Send**: new layout, an asset selector, Max from the available balance, a
+  Paste action for the destination, and a submit button that stays disabled
+  until the amount is positive and within the available balance.
+- **Swap**: redesigned asset selection, balance-aware Max and a button that
+  reverses the direction.
+- **Receive**: a framed QR with the Pollar mark, a network badge and the address
+  with its copy action. The not-ready notice from the provisioning work sits
+  between the QR and the address.
+- **Wallet balance**: refreshed rows that use the asset metadata (name) the app
+  enabled.
+- **Sessions**: the current device is shown apart from the others, and a
+  failed sign-out of another device shows an error instead of nothing.
+- **Behaviour change: Send, Receive and Wallet balance no longer show a network
+  picker.** They open on the app's first configured chain (`useChains()` order).
+  A multichain app whose users need the second chain in these modals should
+  keep 0.11.3's behaviour in mind before promoting this candidate.
+- **Template props.** Apps that mount the templates themselves must pass the
+  new handlers: `SendModalTemplateProps.onMax` and `onPaste`,
+  `SwapModalTemplateProps.onReverse` and `onMax`,
+  `SessionsModalTemplateProps.revokeError`, and
+  `RampWidgetTemplateProps.kycRequired` (the locked routes) and
+  `onVerifyRoute`. `chains`, `walletAddress` and `onSelectChain` become optional
+  on the Send, Receive and Wallet balance templates, and the built-in modals no
+  longer pass them. `WalletBalanceModalTemplateProps` gains an optional
+  `assetMetadata`.
+
+### License and packaging
+
+- **The SDK is licensed under Apache-2.0** from this release on. Versions
+  already on npm stay MIT; a license applies from the release that carries it.
+  Every package now ships its own `LICENSE` and `NOTICE` in the tarball (`NOTICE`
+  is added to `files`, since npm does not include it on its own).
+- The core and react package descriptions say what the SDK covers today:
+  authentication and transactions for Stellar and Solana.
+
+### Skills
+
+- `skills/pollar-wallet-auth/ramps.md` documents fiat ramps end to end, written
+  from the endpoints, the generated schema and the RampWidget, and the skill's
+  description now triggers on moving money between fiat and Stellar. It also
+  covers the quote's requirement steps and `unavailable` list.
+
 ### Tests and CI
 
+- `smoke-kyc.cjs`, `smoke-kyc-modal.cjs`, `smoke-ramp-kyc.cjs` and
+  `smoke-rn-kyc.cjs` cover the KYC and requirement work above (corridor
+  forwarding, typed errors, settled polling, the modal states, every step type
+  opening its own modal and re-quoting once, and the React Native widgets), and
+  run in `npm run test:smoke`.
 - `smoke-client.cjs` gains two provisioning blocks: a wallet restored mid-
   creation is polled until its account lands (replay on subscribe, `READY`
   reaching `getWallet()` and `existsOnStellar`, polling stopping there), and a
@@ -194,12 +364,15 @@ wallet holds 1.8773182)`. Now worded like the anchor and Bridge failures beside
   multi-commit push touched `skills/` in any commit but the last. The liveness of
   the published mirror is Uptime Kuma's job now, not a cron in this repo.
 
-**Upgrading:** nothing is required. An app that reads none of the above behaves
-exactly as before — the login response carries the same fields it always did,
-and `existsOnStellar` keeps the value it always had on a first login (`false`,
-since it is read before the account is created). What changes for an
-un-updated client is timing: a payment attempted in the first seconds after
-signup now returns `SDK_WALLET_NOT_READY` instead of succeeding.
+**Upgrading:** nothing is required for an app that uses the built-in
+components. For wallet provisioning, the login response carries the same fields
+it always did, and `existsOnStellar` keeps the value it always had on a first
+login (`false`, since it is read before the account is created). What changes
+for an un-updated client is timing: a payment attempted in the first seconds
+after signup now returns `SDK_WALLET_NOT_READY` instead of succeeding. An app
+that calls `pollKycStatus()` itself, mounts the Send, Swap, Sessions or ramp
+templates itself, or relies on the network picker in the Send, Receive or
+Wallet balance modals should read [UPGRADE.md](./UPGRADE.md).
 
 ## 0.11.3
 

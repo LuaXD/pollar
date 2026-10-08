@@ -9,7 +9,16 @@ This repository is managed with [Turborepo](https://turbo.build/repo) and contai
 
 ## Packages
 
-> **0.11.4 is a patch (no breaking changes).** The platform now creates an end-user's Stellar
+> **0.11.4** (candidate `0.11.4-rc.1` on the `next` tag) needs no change in an app that uses the
+> built-in components. **KYC by ramp corridor**: a ramp quote reports the first requirement step a
+> route still needs (`requirementsRequired`), and `@pollar/core` and `@pollar/react` complete every
+> step type - KYC, forms, SEGIP registry checks and provider registration - from `<RampWidget>` or
+> from the app's own KYC flow (`openKycModal()`). The Send, Swap, Receive, Sessions and Wallet
+> balance modals follow the **new design**; Send, Receive and Wallet balance open on the app's first
+> chain without a network picker. Apps that mount those templates or call `pollKycStatus()` should
+> read [UPGRADE.md](./UPGRADE.md). From this release the SDK is licensed under **Apache-2.0**.
+>
+> **Wallet provisioning.** The platform now creates an end-user's Stellar
 > account **in the background** instead of inside `POST /auth/login`, so a login returns before
 > the account is on the ledger. `@pollar/core` is the SDK half of that: `wallet.provisioning`
 > (`READY | CREATING | FAILED`) says where the account stands, `onWalletStateChange()` fires when
@@ -58,7 +67,7 @@ This repository is managed with [Turborepo](https://turbo.build/repo) and contai
 
 ### [`@pollar/core`](./packages/core)
 
-**Version:** `0.11.4` &nbsp;|&nbsp; **Registry:** [npm](https://www.npmjs.com/package/@pollar/core)
+**Version:** `0.11.4-rc.1` (`next` tag) &nbsp;|&nbsp; **Registry:** [npm](https://www.npmjs.com/package/@pollar/core)
 
 Framework-agnostic TypeScript SDK. Provides the `PollarClient` class and all lower-level utilities needed to integrate
 Pollar authentication and multichain (Stellar + Solana) transactions into any JavaScript environment.
@@ -137,7 +146,7 @@ const client = new PollarClient({ apiKey: 'pk_...', storage });
 
 ### [`@pollar/react`](./packages/react)
 
-**Version:** `0.11.4` &nbsp;|&nbsp; **Registry:** [npm](https://www.npmjs.com/package/@pollar/react)
+**Version:** `0.11.4-rc.1` (`next` tag) &nbsp;|&nbsp; **Registry:** [npm](https://www.npmjs.com/package/@pollar/react)
 
 React bindings built on top of `@pollar/core`. Provides a context provider, hook, and pre-built UI components for
 drop-in authentication in React applications.
@@ -149,8 +158,8 @@ drop-in authentication in React applications.
   points
 - `<WalletButton>` — ready-made button that opens the authentication modal; dropdown includes Send, Receive, balance,
   and tx history; shows an inline spinner during in-progress transactions
-- `<SendModal>` — full send flow in a single modal: asset picker, amount input, destination address, and inline
-  transaction status (build → sign → success/error)
+- `<SendModal>` — full send flow in a single modal on the app's first chain: asset picker, amount with Max, destination
+  with Paste, and inline transaction status (build → sign → success/error)
 - `<ReceiveModal>` — displays the connected wallet address as a QR code with copy-to-clipboard; no external QR
   dependency required
 - `<SwapModal>` - multi-venue swap UI over the core swap API, with a route selector across venues and paste-a-custom-token
@@ -160,12 +169,12 @@ drop-in authentication in React applications.
   a route with a pending requirement step is listed locked and the widget opens that step
 - `<RequirementFormModal>`, `<RegistryCheckModal>`, `<ProviderRegistrationModal>` - the FORM, REGISTRY_CHECK (SEGIP) and
   PROVIDER_REGISTRATION steps a ramp route can require, as standalone modals for consumers who build their own route list
-- `<KycModal>` - identity verification flow with provider selection and status polling _(UI preview - backend coming
-  soon)_
+- `<KycModal>` - identity verification: hosted (iframe or redirect) flow per option, corridor-scoped when a ramp route
+  asks for it, with review, expiry and retry states; `openKycModal()` without a corridor walks the app's own KYC steps
 - `<TxHistoryModal>` — paginated multichain transaction history viewer with auto-fetch on open, a network picker that
   filters server-side, per-chain explorer links (stellar.expert for Stellar, explorer.solana.com for Solana), and the
   unified `{ amount, unit }` fee per row
-- `<WalletBalanceModal>` — multichain wallet balances (Stellar, Polygon, Solana): a `<ChainSelect>` picks the network and the rows are scoped to it; an unreadable chain shows a dash, never `0`
+- `<WalletBalanceModal>` — wallet balances on the app's first chain; an unreadable chain shows a dash, never `0`
 - `<EnabledAssetsModal>` — the app's dashboard-enabled assets for the network picked in the header, with per-asset
   trustline state; establish/remove trustlines (Stellar only — other chains are informational)
 - `<DistributionRulesModal>` — manage the wallet's distribution rules
@@ -372,4 +381,4 @@ npm run clean
 
 ## License
 
-MIT
+Apache-2.0. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE). Versions published before 0.11.4 were released under MIT.

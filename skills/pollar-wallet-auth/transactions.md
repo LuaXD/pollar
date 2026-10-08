@@ -159,8 +159,11 @@ wallets. The short version: every mutating call returns one `RampResult`, and th
 single function that branches on its optional fields in a fixed order.
 
 Identity verification outside a ramp run has its own methods on the client: `getKycProviders(country)`,
-`startKyc(body)`, `getKycStatus(providerId?)`, `pollKycStatus(providerId)`, `resolveKyc(providerId, level?)`,
-plus `openKycModal()` in `@pollar/react`.
+`startKyc(body)`, `getKycStatus(providerId?)`, `pollKycDecision(providerId)`, `pollKycStatus(providerId)`,
+`resolveKyc(providerId, level?)`, plus `openKycModal()` in `@pollar/react`. An app's own KYC can be ordered
+steps configured in the dashboard: `getAppRequirements()` lists them with the first pending one, and
+`openKycModal()` without a corridor walks them. `pollKycStatus()` returns when the decision settles, so
+`'pending'` there means "held for review", not "keep polling".
 
 ## Ownership proofs (SEP-53 and SEP-10)
 

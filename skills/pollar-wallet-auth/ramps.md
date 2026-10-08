@@ -92,6 +92,38 @@ A quote carries what the UI needs to explain it, and one thing the UI must obey:
 `hint`, `optional`. Render them from the quote, collect the values, and send them back under
 `fields` on the create call. A form hardcoded for one provider breaks the day a better quote wins.
 
+### Routes locked by a requirement step
+
+A corridor can require steps before it is quoted (`@pollar/core` 0.11.4 and an sdk-api that serves
+`/v2/requirements`). Every step is required, in order, and each accepts any of its equivalent
+options. A route with a pending step is not quoted: it comes back in `requirementsRequired`, with
+the first step still open. So `quotes` can be empty while the country is served.
+
+```ts
+const { quotes, requirementsRequired = [], unavailable = [] } = await client.getRampsQuote(query);
+
+for (const step of requirementsRequired) {
+  step.provider; // the route it locks
+  step.type; // 'KYC' | 'FORM' | 'REGISTRY_CHECK' | 'PROVIDER_REGISTRATION'
+  step.optionId; // what to open for this step
+  step.corridorId;
+  step.status; // 'none' | 'pending' | 'rejected' | 'expired'; 'pending' may carry reviewReason
+}
+// unavailable: [{ provider, code }] - serves the route but failed to quote just now
+```
+
+| `type`                  | Complete it with                                                                                      |
+| ----------------------- | ----------------------------------------------------------------------------------------------------- |
+| `KYC`                   | The KYC option `optionId`, scoped to the corridor: `resolveKyc(optionId, level, country, corridorId)` |
+| `FORM`                  | `getRequirementForm(optionId)` (prefilled), then `submitRequirementForm(optionId, answers)`           |
+| `REGISTRY_CHECK`        | `getRegistryCheck(optionId)`, then `submitRegistryCheck(optionId, edit)` (SEGIP)                      |
+| `PROVIDER_REGISTRATION` | `getProviderRegistration(corridorId)`, then `submitProviderRegistration(corridorId)` on consent       |
+
+After a step, **quote again** instead of reusing a quote you held: the price can move while the
+user verifies. The create call has the same gate: a route whose step is still open fails with
+`SDK_RAMPS_KYC_REQUIRED`, and the error body names the step. `<RampWidget>` in `@pollar/react` does
+all of this - it lists locked routes with a Verify action and opens each step's modal.
+
 ## On-ramp (fiat in)
 
 ```ts

@@ -290,8 +290,9 @@ These are the failures that look like SDK bugs and are not:
 ## Version note
 
 This skill tracks `@pollar/core` and `@pollar/react` `0.11.x`, which moved every request to the `/v2`
-API and added Solana alongside Stellar. `0.11.4` is the current release and is where
-`wallet.provisioning`, `onWalletStateChange()` and `isWalletNotReady()` come from; on an older SDK the
+API and added Solana alongside Stellar. `0.11.4` (on npm's `next` tag as `0.11.4-rc.1` until it is
+promoted) is where `wallet.provisioning`, `onWalletStateChange()` and `isWalletNotReady()` come from, along
+with ramp requirement steps (`requirementsRequired`, see [ramps.md](ramps.md)); on an older SDK the
 background-creation window exists but nothing in the client describes it. Two earlier breaks matter if
 an existing integration is being upgraded: `0.11.1` made balances nullable, and `0.10.0` replaced the
 singular `walletAdapter` resolver and `loginWallet(id)` with a `walletAdapters: WalletAdapter[]` array. Check

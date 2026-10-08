@@ -2,7 +2,17 @@
 
 Core SDK for [Pollar](https://pollar.xyz) — authentication and transaction utilities for Stellar and Solana applications.
 
-> **0.11.4** is a patch, non-breaking. The platform now creates an end-user's Stellar account
+> **0.11.4** (candidate `0.11.4-rc.1` on the `next` tag). **KYC by ramp corridor**: the v2 ramp quote
+> types `requirementsRequired` (the first step a route still needs) and `unavailable` (providers that
+> failed to quote just now); new requirement methods (`getAppRequirements`, `getRequirementForm` /
+> `submitRequirementForm`, `getRegistryCheck` / `submitRegistryCheck`, `getProviderRegistration` /
+> `submitProviderRegistration`); corridor-scoped KYC (`corridorId` on the status, providers and
+> resolve calls); typed KYC errors (`PollarApiError`), `KycStatus` gains `'expired'`, and
+> `pollKycDecision()` returns the settled read. **Behaviour change:** `pollKycStatus()` now also returns
+> on manual review (`'pending'`) and on expiry (`'expired'`) - see [UPGRADE.md](../../UPGRADE.md).
+> Licensed under Apache-2.0 from this release.
+>
+> **Wallet provisioning** (non-breaking). The platform now creates an end-user's Stellar account
 > **in the background** instead of inside `POST /auth/login`, so a login returns before the
 > account is on the ledger. New API for that window: `wallet.provisioning`
 > (`'READY' | 'CREATING' | 'FAILED'`) on `getWallet()` / `getWallets()` and the persisted session
@@ -774,15 +784,53 @@ client.earnWithdraw(params: EarnTxParams): Promise<SubmitOutcome>;
 
 ### KYC
 
-Fetch KYC status/providers and start or resolve a KYC flow:
+Fetch KYC status/providers and start or resolve a KYC flow. Pass `corridorId` when a ramp route asks for KYC: the
+read then answers for the corridor's KYC step, whichever of its options the user passed. With neither id,
+`getKycStatus()` answers for the app's own KYC steps and names the `pendingStep`.
 
 ```ts
-client.getKycStatus(providerId?: string);
-client.getKycProviders(country: string);
+client.getKycStatus(providerId?: string, corridorId?: string): Promise<KycStatusContent>;
+client.getKycProviders(country: string, corridorId?: string): Promise<{ providers: KycProvider[] }>;
 client.startKyc(body: KycStartBody): Promise<KycStartResponse>;
-client.resolveKyc(providerId: string, level?: KycLevel);
-client.pollKycStatus(providerId: string, opts?: { intervalMs?: number; timeoutMs?: number }): Promise<KycStatus>;
+client.resolveKyc(providerId: string, level?: KycLevel, country?: string, corridorId?: string, idempotencyKey?: string);
+client.pollKycDecision(providerId: string, opts?: { intervalMs?: number; timeoutMs?: number; corridorId?: string }): Promise<KycStatusContent>;
+client.pollKycStatus(providerId: string, opts?: { intervalMs?: number; timeoutMs?: number; corridorId?: string }): Promise<KycStatus>;
 ```
+
+- `KycStatus` is `'none' | 'pending' | 'approved' | 'rejected' | 'expired'`. A read also carries `decisionStatus`
+  (`'pending' | 'manual_review' | 'approved' | 'rejected' | 'expired'`) and `reviewReason`, which say why a `pending` is
+  pending.
+- `pollKycDecision()` stops when the decision settles - approved, rejected, expired, held for manual review, or approved
+  by the vendor and still being recorded - and returns the whole read. `pollKycStatus()` is the same poll reduced to a
+  status, so a session held for review returns `'pending'`.
+- The status, providers and start calls throw `PollarApiError` with the backend code (`SDK_KYC_UNDER_REVIEW`,
+  `SDK_KYC_ALREADY_APPROVED`, ...). `resolveKyc()` treats `SDK_KYC_ALREADY_APPROVED` as approved, and reusing the same
+  `idempotencyKey` after a vendor failure returns the session already created instead of billing a new one.
+- `startKyc()` gets a 30 s budget instead of the 10 s request default, since creating a session waits on the vendor.
+
+#### Requirement steps
+
+A ramp corridor, and an app's own KYC, can require ordered steps: every step is required, in order, and each accepts any
+of its equivalent options. A v2 ramp quote reports the first pending step of a locked route in `requirementsRequired`
+(`RampQuoteRequirement`: `type`, `optionId`, `corridorId`, `position`, `completed` of `total`, `status`, `reviewReason`)
+instead of quoting it; complete that step, then quote again.
+
+```ts
+client.getAppRequirements(): Promise<AppRequirements>; // the app's own steps and the first pending one
+// FORM: read (prefilled with the user's previous answers) and submit
+client.getRequirementForm(formId: string): Promise<RequirementForm>;
+client.submitRequirementForm(formId: string, answers: RequirementFormAnswers): Promise<RequirementFormSubmitted>;
+// REGISTRY_CHECK (SEGIP): the verified identity prefilled; only the surname split and the CI complement are editable
+client.getRegistryCheck(optionId: string): Promise<RegistryCheck>;
+client.submitRegistryCheck(optionId: string, edit: RegistryCheckEdit): Promise<RegistryCheckSubmitted>;
+// PROVIDER_REGISTRATION: what the provider receives, then register on the user's consent
+client.getProviderRegistration(corridorId: string): Promise<ProviderRegistration>;
+client.submitProviderRegistration(corridorId: string): Promise<ProviderRegistrationSubmitted>;
+```
+
+For a `KYC` step, open the option the step names (`optionId`) with the step's `corridorId`. The v2 quote also lists, in
+`unavailable`, the providers that serve the route but failed to quote it just now (`{ provider, code }`), so an empty
+`quotes` is not always "no provider serves this country". These need an sdk-api that serves `/v2/requirements`.
 
 ---
 
@@ -1089,8 +1137,22 @@ import type {
   // KYC
   KycLevel,
   KycStatus,
+  KycDecisionStatus,
+  KycStatusContent,
   KycStartBody,
   KycStartResponse,
+
+  // Requirement steps
+  RampQuoteRequirement,
+  AppRequirements,
+  RequirementForm,
+  RequirementFormAnswers,
+  RequirementFormSubmitted,
+  RegistryCheck,
+  RegistryCheckEdit,
+  RegistryCheckSubmitted,
+  ProviderRegistration,
+  ProviderRegistrationSubmitted,
 
   // Distribution
   DistributionRule,
@@ -1118,4 +1180,4 @@ import {
 
 ## License
 
-MIT
+Apache-2.0. See [LICENSE](./LICENSE) and [NOTICE](./NOTICE).

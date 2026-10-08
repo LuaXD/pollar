@@ -2,13 +2,64 @@
 
 ## 0.11.3 -> 0.11.4
 
-No breaking changes and no migration steps. 0.11.4 is additive: the wallet
+No migration steps for an app that uses the built-in components. The wallet
 reports where its on-chain Stellar account stands, the client watches it until
 the account lands, a DPoP proof rejected over clock skew is re-signed instead of
-clearing the session, and every request carries an `x-pollar-sdk` build header.
-`@pollar/react@0.11.4` requires `@pollar/core@^0.11.4`; if you pin both packages
-to exact versions, keep them on the same version. The four adapters stay at
-0.11.2 - their `@pollar/core@^0.11.2` range already resolves 0.11.4.
+clearing the session, every request carries an `x-pollar-sdk` build header,
+ramp quotes report the requirement steps a route still needs, and the wallet
+modals follow the new design. `@pollar/react@0.11.4` requires
+`@pollar/core@^0.11.4`; if you pin both packages to exact versions, keep them on
+the same version. The four adapters stay at 0.11.2 - their
+`@pollar/core@^0.11.2` range already resolves 0.11.4.
+
+**Release candidate.** `0.11.4-rc.1` is published on the `next` tag. A caret
+range does not pick up a prerelease, so install it explicitly
+(`npm i @pollar/core@next @pollar/react@next`); `@pollar/react@0.11.4-rc.1`
+requires `@pollar/core@^0.11.4-rc.1`.
+
+**License.** From 0.11.4 the packages are licensed under Apache-2.0 (earlier
+versions stay MIT). Both are permissive; Apache-2.0 adds an explicit patent
+grant and asks that the `NOTICE` file each package now ships travels with
+redistributions.
+
+### KYC and ramps
+
+- **`pollKycStatus()` returns when the decision settles.** It used to keep
+  polling until `approved` or `rejected`. It now also returns `'pending'` for a
+  session held for manual review and `'expired'` for one that expired. If you
+  loop on it, treat `'pending'` as "under review, stop polling", and use
+  `pollKycDecision()` when you need the `reviewReason`.
+- **`KycStatus` includes `'expired'`.** An exhaustive `switch` over it needs the
+  new case.
+- **KYC endpoints throw `PollarApiError`.** `getKycStatus`, `getKycProviders`
+  and `startKyc` throw it with the backend code instead of a plain `Error`. The
+  message is still the code; prefer `isPollarApiError(err) && err.code`.
+- **A ramp quote may come back with no quotes and a non-empty
+  `requirementsRequired`.** If you build your own route list, show those routes
+  as locked and open the pending step (`type` and `optionId`); then quote again
+  instead of reusing the quote you held. `<RampWidget>` does this for you. This
+  needs an sdk-api that serves `/v2/requirements`.
+
+### Wallet modal templates
+
+Only for apps that mount the templates themselves:
+
+| Template                          | Change                                                                               |
+| --------------------------------- | ------------------------------------------------------------------------------------ |
+| `SendModalTemplateProps`          | new required `onMax`, `onPaste`; `chains`, `walletAddress`, `onSelectChain` optional |
+| `SwapModalTemplateProps`          | new required `onReverse`, `onMax`                                                    |
+| `SessionsModalTemplateProps`      | new required `revokeError` (`string \| null`)                                        |
+| `RampWidgetTemplateProps`         | new required `kycRequired` (`RampQuoteRequirement[]`), `onVerifyRoute`               |
+| `ReceiveModalTemplateProps`       | `chains`, `onSelectChain` optional                                                   |
+| `WalletBalanceModalTemplateProps` | `chains`, `onSelectChain` optional; new optional `assetMetadata`                     |
+| `KycModalTemplateProps`           | new optional `reviewReason`, `processing`, `error`, `onStartAgain`                   |
+
+**Behaviour change: the Send, Receive and Wallet balance modals no longer show
+a network picker.** They open on the app's first configured chain. In a
+multichain app, a user who needs another chain in these modals cannot switch
+to it from the built-in components in this candidate.
+
+### Wallet provisioning
 
 **One behaviour change to be aware of even if you change no code.** The platform
 now creates the end-user's Stellar account in the background instead of inside
@@ -42,10 +93,11 @@ const off = client.onWalletStateChange((provisioning) => {
 ```
 
 `@pollar/react`'s built-in Send, Receive and wallet-button templates already do
-this. A CUSTOM template of yours keeps compiling untouched: `notReadyReason` on
-`SendModalTemplateProps` / `ReceiveModalTemplateProps` /
+this. These provisioning props are optional on a template you mount yourself:
+`notReadyReason` on `SendModalTemplateProps` / `ReceiveModalTemplateProps` /
 `WalletButtonTemplateProps`, and `onboardingStatus` on
-`RampWidgetTemplateProps`, are all optional. Render `notReadyReason` when it is
+`RampWidgetTemplateProps` (the redesign's required props are listed in the
+table above). Render `notReadyReason` when it is
 present to phrase the wait the way the built-ins do, or call the exported
 `walletNotReadyReason(wallet, chain)` yourself.
 
