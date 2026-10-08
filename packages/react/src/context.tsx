@@ -38,6 +38,7 @@ import { ModalErrorBoundary, setModalErrorLogger } from './components/commons';
 import { DistributionRulesModal } from './components/distribution-rules-modal/DistributionRulesModal';
 import { EnabledAssetsModal } from './components/enabled-assets-modal/EnabledAssetsModal';
 import { KycModal } from './components/kyc-modal/KycModal';
+import { AppKycFlow } from './components/kyc-modal/AppKycFlow';
 import { LoginModal } from './components/login-modal/LoginModal';
 import { RampWidget } from './components/ramp-widget/RampWidget';
 import { ReceiveModal } from './components/receive-modal/ReceiveModal';
@@ -723,14 +724,24 @@ export function PollarProvider({
       )}
       {kycModalOpen && (
         <ModalErrorBoundary onClose={() => setKycModalOpen(false)}>
-          <KycModal
-            onClose={() => setKycModalOpen(false)}
-            {...(kycModalOptions.country !== undefined && { country: kycModalOptions.country })}
-            {...(kycModalOptions.corridorId !== undefined && { corridorId: kycModalOptions.corridorId })}
-            {...(kycModalOptions.providerId !== undefined && { providerId: kycModalOptions.providerId })}
-            {...(kycModalOptions.level !== undefined && { level: kycModalOptions.level })}
-            {...(kycModalOptions.onApproved !== undefined && { onApproved: kycModalOptions.onApproved })}
-          />
+          {kycModalOptions.corridorId === undefined && kycModalOptions.providerId === undefined ? (
+            // The app's own KYC: its configured steps, in order.
+            <AppKycFlow
+              onClose={() => setKycModalOpen(false)}
+              {...(kycModalOptions.country !== undefined && { country: kycModalOptions.country })}
+              {...(kycModalOptions.level !== undefined && { level: kycModalOptions.level })}
+              {...(kycModalOptions.onApproved !== undefined && { onApproved: kycModalOptions.onApproved })}
+            />
+          ) : (
+            <KycModal
+              onClose={() => setKycModalOpen(false)}
+              {...(kycModalOptions.country !== undefined && { country: kycModalOptions.country })}
+              {...(kycModalOptions.corridorId !== undefined && { corridorId: kycModalOptions.corridorId })}
+              {...(kycModalOptions.providerId !== undefined && { providerId: kycModalOptions.providerId })}
+              {...(kycModalOptions.level !== undefined && { level: kycModalOptions.level })}
+              {...(kycModalOptions.onApproved !== undefined && { onApproved: kycModalOptions.onApproved })}
+            />
+          )}
         </ModalErrorBoundary>
       )}
       {rampModalOpen && (

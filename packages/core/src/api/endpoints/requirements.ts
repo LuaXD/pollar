@@ -1,4 +1,4 @@
-import type { RequirementForm, RequirementFormAnswers, RequirementFormSubmitted } from '../../types';
+import type { AppRequirements, RequirementForm, RequirementFormAnswers, RequirementFormSubmitted } from '../../types';
 import { PollarApiError } from '../../types';
 import type { PollarApiClient } from '../client';
 
@@ -36,5 +36,17 @@ export async function submitRequirementForm(
     body: { answers },
   });
   if (!data?.content || error) throw requirementApiError(error, 'Failed to submit the form');
+  return data.content;
+}
+
+/**
+ * GET /requirements
+ * The app's own KYC steps (every one required, in order, each with equivalent
+ * options) and where the user stands: each step's completion and `next`, the first
+ * pending step, or null when every step is complete. Nothing is blocked on it.
+ */
+export async function getAppRequirements(api: PollarApiClient): Promise<AppRequirements> {
+  const { data, error } = await api.GET('/requirements');
+  if (!data?.content || error) throw requirementApiError(error, 'Failed to load the verification steps');
   return data.content;
 }

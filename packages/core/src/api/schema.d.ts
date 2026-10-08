@@ -1021,6 +1021,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/requirements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the app's own KYC steps
+         * @description The steps the app configured for its own KYC (every one required, in order, each with equivalent options) and where the user stands: each step's completion and the first pending one. Nothing is blocked on it; the app decides. A KYC step is completed through the /kyc routes with `optionId`, a FORM step through /requirements/forms/{formId}.
+         */
+        get: operations["getRequirements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/requirements/forms/{formId}": {
         parameters: {
             query?: never;
@@ -6603,6 +6623,83 @@ export interface operations {
             };
         };
     };
+    getRequirements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The app's steps and the user's progress */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_REQUIREMENTS";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            steps: {
+                                position: number;
+                                /** @enum {string} */
+                                type: "KYC" | "FORM";
+                                optionIds: string[];
+                                completed: boolean;
+                            }[];
+                            next: {
+                                position: number;
+                                completed: number;
+                                total: number;
+                                /** @enum {string} */
+                                type: "KYC" | "FORM";
+                                optionId: string;
+                                /** @enum {string} */
+                                status: "none" | "pending" | "rejected" | "expired";
+                                reviewReason?: string;
+                            } | null;
+                            completed: number;
+                            total: number;
+                        };
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+        };
+    };
     getRequirementsFormsByFormId: {
         parameters: {
             query?: never;
@@ -6877,6 +6974,13 @@ export interface operations {
                             expiresAt?: string;
                             /** @description Why an approval is held for manual review, e.g. DUPLICATE_DOCUMENT. */
                             reviewReason?: string;
+                            /** @description Without providerId or corridorId, for an app with its own KYC steps: the first pending step. `status` is `approved` only once every step is complete. */
+                            pendingStep?: {
+                                position: number;
+                                /** @enum {string} */
+                                type: "KYC" | "FORM";
+                                optionId: string;
+                            };
                         };
                     };
                 };

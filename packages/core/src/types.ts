@@ -968,6 +968,9 @@ export type RequirementFormField = RequirementForm['fields'][number];
 export type RequirementFormAnswers = RequirementForm['answers'];
 export type RequirementFormSubmitted =
   pollarPaths['/requirements/forms/{formId}']['post']['responses'][200]['content']['application/json']['content'];
+/** The app's own KYC steps and the user's progress on them (GET /requirements). */
+export type AppRequirements = pollarPaths['/requirements']['get']['responses'][200]['content']['application/json']['content'];
+export type AppRequirementStep = NonNullable<AppRequirements['next']>;
 /** One field the server refused, from a KYC_FORM_INVALID_ANSWERS error's `body.errors`. */
 export type RequirementFormAnswerError = { key: string; code: string };
 

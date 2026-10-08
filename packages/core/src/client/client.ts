@@ -3,7 +3,7 @@ import { claimDistributionRule, listDistributionRules } from '../api/endpoints/d
 import { getSwapConfig, getSwapTokens, quoteSwap } from '../api/endpoints/swap';
 import { buildEarnTx, getEarnOpportunities, getEarnPosition, getEarnProviders } from '../api/endpoints/earn';
 import { getKycProviders, getKycStatus, pollKycDecision, pollKycStatus, resolveKyc, startKyc } from '../api/endpoints/kyc';
-import { getRequirementForm, submitRequirementForm } from '../api/endpoints/requirements';
+import { getAppRequirements, getRequirementForm, submitRequirementForm } from '../api/endpoints/requirements';
 import {
   completeWithdraw,
   createOffRamp,
@@ -53,6 +53,7 @@ import {
   KycStartResponse,
   KycStatus,
   KycStatusContent,
+  AppRequirements,
   RequirementForm,
   RequirementFormAnswers,
   RequirementFormSubmitted,
@@ -3291,6 +3292,10 @@ export class PollarClient {
   }
 
   // --- Requirement steps ------------------------------------------------------
+
+  getAppRequirements(): Promise<AppRequirements> {
+    return getAppRequirements(this._api);
+  }
 
   getRequirementForm(formId: string): Promise<RequirementForm> {
     return getRequirementForm(this._api, formId);
