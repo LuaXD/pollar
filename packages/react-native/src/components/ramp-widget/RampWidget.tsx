@@ -452,6 +452,8 @@ export function RampWidgetTemplate({
 export function RampWidget({ onClose }: { onClose: () => void }) {
   const { getClient, walletAddress, copyText, ramp: savedRamp, setRamp: saveRamp, styles: pollarStyles } = usePollar();
   const { theme = 'light', accentColor = '#005DB4' } = pollarStyles;
+  const routeTextColor = theme === 'dark' ? '#f3f4f6' : '#111827';
+  const routeBorderColor = theme === 'dark' ? '#374151' : '#e5e7eb';
   const client = getClient();
 
   const [step, setStep] = useState<RampStep>('input');
@@ -492,6 +494,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
   }
   const [routes, setRoutes] = useState<RampRoute[]>([]);
   const [routeId, setRouteId] = useState('');
+  const selectedRoute = routes.find((route) => route.routeId === routeId);
   const countries = mergeRampCountries(legacyCountries, routes);
   useEffect(() => {
     let active = true;
@@ -642,7 +645,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
         amountExact: amount,
         currency,
         direction,
-        ...(routeId ? { routeId, chain: routes.find((route) => route.routeId === routeId)!.asset.chain } : {}),
+        ...(selectedRoute ? { routeId: selectedRoute.routeId, chain: selectedRoute.asset.chain } : {}),
       });
       const list = result.quotes ?? [];
       const locked = result.requirementsRequired ?? [];
@@ -755,7 +758,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
       const base: Record<string, unknown> = {
         quoteId: quote.quoteId,
         amount: Number(amount),
-        amountExact: selectedQuote?.terms?.fiatAmount ?? amount,
+        amountExact: quote.terms?.fiatAmount ?? amount,
         currency,
         country,
       };
@@ -933,10 +936,14 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
           routeSelector={
             routes.length > 0 && (
               <View>
-                <Text>Asset and payment route</Text>
+                <Text style={[styles.label, { color: routeTextColor }]}>Asset and payment route</Text>
                 {routes.map((route) => (
                   <TouchableOpacity
                     key={route.routeId}
+                    style={[
+                      styles.chip,
+                      { marginBottom: 8, borderColor: routeId === route.routeId ? accentColor : routeBorderColor },
+                    ]}
                     disabled={countriesLoading}
                     accessibilityRole="button"
                     accessibilityState={{ disabled: countriesLoading, selected: routeId === route.routeId }}
@@ -947,7 +954,7 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
                       setDirection(route.direction);
                     }}
                   >
-                    <Text>
+                    <Text style={{ color: routeTextColor }}>
                       {route.direction} · {route.fiatCurrency} / {route.asset.code} · {route.asset.chain} · {route.rail}
                     </Text>
                   </TouchableOpacity>

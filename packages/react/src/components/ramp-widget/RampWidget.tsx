@@ -196,6 +196,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
   }
   const [routes, setRoutes] = useState<RampRoute[]>([]);
   const [routeId, setRouteId] = useState('');
+  const selectedRoute = routes.find((route) => route.routeId === routeId);
   const countries = mergeRampCountries(legacyCountries, routes);
   useEffect(() => {
     if (!country && countries[0]) {
@@ -330,7 +331,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
           amountExact: amount,
           currency,
           direction,
-          ...(routeId ? { routeId, chain: routes.find((route) => route.routeId === routeId)!.asset.chain } : {}),
+          ...(selectedRoute ? { routeId: selectedRoute.routeId, chain: selectedRoute.asset.chain } : {}),
         });
         setQuotes(result.quotes ?? []);
         setRequirementsRequired(result.requirementsRequired ?? []);
@@ -425,7 +426,7 @@ export function RampWidget({ onClose }: RampWidgetProps) {
       amountExact: amount,
       currency,
       direction,
-      ...(routeId ? { routeId, chain: routes.find((route) => route.routeId === routeId)!.asset.chain } : {}),
+      ...(selectedRoute ? { routeId: selectedRoute.routeId, chain: selectedRoute.asset.chain } : {}),
     });
     const list = result.quotes ?? [];
     const locked = result.requirementsRequired ?? [];

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, TouchableWithoutFeedback } from 'react-native';
 
+/** Presentation state, theme colors and actions for the native wallet button and its menu. */
 export interface WalletButtonTemplateProps {
   walletAddress: string | null;
   accentColor: string;

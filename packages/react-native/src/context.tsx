@@ -28,7 +28,7 @@ export interface NativePlatformAdapters {
   openAuthUrl?: PollarClientConfig['openAuthUrl'];
 }
 export interface PollarProviderProps {
-  /** Remount when changing application credentials. */
+  /** Configuration changes replace and clean up the owned client. Memoize object-valued adapters. */
   config: PollarClientConfig;
   appConfig?: PollarConfig;
   styles?: PollarStyles;
@@ -130,34 +130,51 @@ export type PollarContextValue = Methods &
 const Context = createContext<PollarContextValue | null>(null);
 const emptyConfig: PollarConfig = { application: { name: '', network: 'testnet', chains: [] }, styles: {} };
 
+// Preserve equivalent inline scalar configuration without restarting the owned client.
+function useStableConfig(value: PollarClientConfig): PollarClientConfig {
+  const stable = useRef(value);
+  const keys = Object.keys(value) as Array<keyof PollarClientConfig>;
+  if (keys.length !== Object.keys(stable.current).length || keys.some((key) => value[key] !== stable.current[key]))
+    stable.current = value;
+  return stable.current;
+}
+
 // Creation occurs after commit. An abandoned Strict Mode render never starts a client.
 export function PollarProvider(props: PollarProviderProps) {
-  const initial = useRef(props);
+  const config = useStableConfig(props.config);
+  const adapter = props.privyAdapter;
+  const storage = props.platform?.storage;
+  const visibilityProvider = props.platform?.visibilityProvider;
+  const openAuthUrl = props.platform?.openAuthUrl;
+  const clientConfig = useMemo(
+    () => ({
+      ...config,
+      ...(storage ? { storage } : {}),
+      ...(visibilityProvider ? { visibilityProvider } : {}),
+      ...(openAuthUrl ? { openAuthUrl } : {}),
+      walletAdapters: [...(config.walletAdapters ?? []), ...(adapter ? [adapter] : [])],
+    }),
+    [config, storage, visibilityProvider, openAuthUrl, adapter],
+  );
+  const generation = useRef(0);
   const [runtime, setRuntime] = useState<{
     client: PollarClient;
+    config: PollarClientConfig;
+    generation: number;
     adapter?: InteractiveAuthAdapter;
     Host?: React.ComponentType<{ children: React.ReactNode }>;
   }>();
   const [error, setError] = useState('');
   useEffect(() => {
     let active = true;
+    setError('');
     let owned: PollarClient | undefined;
     void (async () => {
       // Let Strict Mode's setup/cleanup finish before allocating resources.
       await Promise.resolve();
       if (!active) return;
-      const p = initial.current;
-      const input = p.config;
-      const adapter = p.privyAdapter;
-      if (!active) return;
-      owned = new PollarClient({
-        ...input,
-        ...(p.platform?.storage ? { storage: p.platform.storage } : {}),
-        ...(p.platform?.visibilityProvider ? { visibilityProvider: p.platform.visibilityProvider } : {}),
-        ...(p.platform?.openAuthUrl ? { openAuthUrl: p.platform.openAuthUrl } : {}),
-        walletAdapters: [...(input.walletAdapters ?? []), ...(adapter ? [adapter] : [])],
-      });
-      setRuntime({ client: owned, ...(adapter ? { adapter } : {}) });
+      owned = new PollarClient(clientConfig);
+      setRuntime({ client: owned, config: clientConfig, generation: ++generation.current, ...(adapter ? { adapter } : {}) });
     })().catch((e: unknown) => {
       if (active) setError(e instanceof Error ? e.message : String(e));
     });
@@ -166,10 +183,10 @@ export function PollarProvider(props: PollarProviderProps) {
       owned?.cancelLogin();
       owned?.destroy();
     };
-  }, []);
+  }, [clientConfig, adapter]);
   if (error) return <Text accessibilityRole="alert">{error}</Text>;
-  if (!runtime) return <ActivityIndicator accessibilityLabel="Initializing Pollar" />;
-  const content = <ClientProvider {...props} runtime={runtime} />;
+  if (!runtime || runtime.config !== clientConfig) return <ActivityIndicator accessibilityLabel="Initializing Pollar" />;
+  const content = <ClientProvider key={runtime.generation} {...props} runtime={runtime} />;
   return runtime.Host ? <runtime.Host>{content}</runtime.Host> : content;
 }
 
@@ -238,11 +255,13 @@ function ClientProvider({
     };
   }, [client, appConfig, retry]);
   const auth = client.getAuthState();
+  const previousAuthStep = useRef(auth.step);
   useEffect(() => {
-    if (auth.step === 'idle') {
+    if (previousAuthStep.current === 'authenticated' && auth.step === 'idle') {
       setRamp(null);
       setModal(null);
     }
+    previousAuthStep.current = auth.step;
   }, [auth.step]);
   const wallet = client.getWallet();
   const tx = client.getTransactionState() ?? { step: 'idle' as const };

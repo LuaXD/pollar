@@ -50,7 +50,12 @@ const snapshot = {
     }).qr,
     null,
   );
-  assert.equal(sdk.safeRampUrl('javascript:alert(1)'), null);
+  assert.equal(sdk.RampSigningRegistry, undefined);
+  assert.equal(sdk.safeRampUrl, undefined);
+  assert.deepEqual(
+    sdk.describeRampAction({ ...snapshot, nextAction: { kind: 'redirect', url: 'javascript:alert(1)' } }).links,
+    [],
+  );
   const verification = sdk.describeRampAction({
     ...snapshot,
     nextAction: {
@@ -74,8 +79,8 @@ const snapshot = {
   assert.equal(sequential.links.length, 1);
   let signs = 0,
     continuations = 0;
-  const client = Object.create(sdk.PollarClient.prototype);
-  client._rampSigners = new sdk.RampSigningRegistry();
+  const client = new sdk.PollarClient({ apiKey: 'fixture', logLevel: 'silent' });
+  client.destroy();
   client.getRampTransaction = async () => snapshot;
   client.continueRamp = async (txId, body) => {
     assert.equal(txId, snapshot.txId);

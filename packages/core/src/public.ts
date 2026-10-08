@@ -89,4 +89,5 @@ export { quoteSwap, getSwapConfig, getSwapTokens } from './api/endpoints/swap';
 // --- Earn endpoints -----------------------------------------------------------
 export { getEarnProviders, getEarnOpportunities, getEarnPosition, buildEarnTx } from './api/endpoints/earn';
 
-export * from './ramps/workflow';
+export { describeRampAction, mergeRampSnapshot, mergeRampCountries } from './ramps/workflow';
+export type { RampSnapshot, RampSigningHandler } from './ramps/workflow';

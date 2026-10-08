@@ -1,3 +1,4 @@
+import { assertRampStellarAccount } from '../ramps/stellar-account';
 import { RampSigningRegistry, type RampSigningHandler, type RampSnapshot } from '../ramps/workflow';
 import type { RampContinuationBody } from '../types';
 import { createApiClient, fetchWithTimeout, PollarApiClient } from '../api/client';
@@ -3701,17 +3702,20 @@ export class PollarClient {
 
   // --- Ramps ----------------------------------------------------------------
 
-  getRampRoutes() {
+  /** Discover the application's available asset and payment routes. */
+  getRampRoutes(): Promise<import('../types').RampsRoutesResponse> {
     return getRampRoutes(this._api);
   }
-  continueRamp(txId: string, body: RampContinuationBody) {
+  /** Submit an explicit continuation for the saved action and transaction version. */
+  continueRamp(txId: string, body: RampContinuationBody): Promise<RampsTransactionResponse> {
     return continueRamp(this._api, txId, body);
   }
-  registerRampSigningHandler(chain: string, encoding: string, handler: RampSigningHandler) {
+  /** Register a signer for a chain and payload encoding; returns its cleanup function. */
+  registerRampSigningHandler(chain: string, encoding: string, handler: RampSigningHandler): () => void {
     return this._rampSigners.register(chain, encoding, handler);
   }
   /** Explicit user action only. Reading/restoring a workflow never invokes this. */
-  async signRampAction(txId: string, snapshot: RampSnapshot) {
+  async signRampAction(txId: string, snapshot: RampSnapshot): Promise<RampsTransactionResponse> {
     const fresh = await this.getRampTransaction(txId);
     const action = fresh.nextAction;
     if (
@@ -3730,8 +3734,16 @@ export class PollarClient {
         const wallet = this.getWallet();
         if (!wallet || (wallet.chain ?? 'STELLAR') !== saved.chain || this.getNetwork() !== saved.network)
           throw new Error('Connect the wallet and network required by this ramp action.');
+        await assertRampStellarAccount(saved, wallet.address);
+        const connected = this.getWallet();
+        if (
+          connected?.address !== wallet.address ||
+          (connected?.chain ?? 'STELLAR') !== saved.chain ||
+          this.getNetwork() !== saved.network
+        )
+          throw new Error('The connected wallet changed. Refresh before signing.');
         const signed = await this.signTx(saved.payload.value, { skipSponsorship: saved.purpose === 'authentication' });
-        if (signed.status !== 'signed') throw new Error(signed.message ?? 'Signing was cancelled.');
+        if (signed.status !== 'signed') throw new Error(signed.message ?? signed.details ?? 'Signing was cancelled.');
         return signed.signedXdr;
       };
     }
