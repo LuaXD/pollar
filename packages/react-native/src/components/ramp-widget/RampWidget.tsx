@@ -471,13 +471,15 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const mounted = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Set on every mount: development mounts components twice, and the cleanup of the
+    // first mount would otherwise leave this false and drop every response.
+    mounted.current = true;
+    return () => {
       mounted.current = false;
       kycAttempt.current = null;
-    },
-    [],
-  );
+    };
+  }, []);
 
   useEffect(() => {
     let active = true;

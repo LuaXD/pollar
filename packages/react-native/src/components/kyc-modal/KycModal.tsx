@@ -246,12 +246,14 @@ export function KycModal({ onClose, country = 'MX', level = 'basic', corridorId,
   const autoOpened = useRef(false);
   const openedInBrowser = useRef(false);
   const mounted = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Set on every mount: development mounts components twice, and the cleanup of the
+    // first mount would otherwise leave this false and drop every response.
+    mounted.current = true;
+    return () => {
       mounted.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
 
   const client = getClient();
 
