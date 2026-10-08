@@ -63,6 +63,8 @@ const { JSDOM } = require('jsdom');
 const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'https://test.invalid/' });
 globalThis.window = dom.window;
 globalThis.document = dom.window.document;
+// Node 20, the CI runtime, has no global navigator; react-dom reads it on load.
+globalThis.navigator = dom.window.navigator;
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = require('react-dom/client');
 const core = require('../packages/core/dist/index.js');
