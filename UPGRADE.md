@@ -14,8 +14,10 @@ the same version. The four adapters stay at 0.11.2 - their
 
 **Release candidate.** `0.11.4-rc.1` is published on the `next` tag. A caret
 range does not pick up a prerelease, so install it explicitly
-(`npm i @pollar/core@next @pollar/react@next`); `@pollar/react@0.11.4-rc.1`
-requires `@pollar/core@^0.11.4-rc.1`.
+(`npm i @pollar/core@next @pollar/react@next`, or `@pollar/react-native@next`);
+`@pollar/react@0.11.4-rc.1` and `@pollar/react-native@0.11.4-rc.1` require
+`@pollar/core@^0.11.4-rc.1`. `@pollar/react-native` moves from `0.1.1` to the
+SDK's version line.
 
 **License.** From 0.11.4 the packages are licensed under Apache-2.0 (earlier
 versions stay MIT). Both are permissive; Apache-2.0 adds an explicit patent

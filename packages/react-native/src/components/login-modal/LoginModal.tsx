@@ -2,7 +2,7 @@ import { AUTH_ERROR_CODES, AuthState, WalletType } from '@pollar/core';
 import React, { useEffect, useRef, useState } from 'react';
 import { View, StyleSheet, TouchableWithoutFeedback } from 'react-native';
 import { usePollar } from '../../context';
-import { LoginModalTemplate } from './LoginModalUI'; // Bypassing cache
+import { LoginModalTemplate } from './LoginModalUI';
 
 interface LoginModalProps {
   onClose: () => void;

@@ -1,5 +1,4 @@
-/// <reference types="node" />
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { defineConfig } from 'tsup';
 
 const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
@@ -7,7 +6,7 @@ const pkg = JSON.parse(readFileSync('./package.json', 'utf-8'));
 export default defineConfig({
   entry: ['src/index.ts'],
   format: ['cjs', 'esm'],
-  dts: false,
+  dts: true,
   splitting: false,
   sourcemap: true,
   clean: true,

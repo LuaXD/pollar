@@ -2,8 +2,8 @@
 
 ## 0.11.4
 
-> First candidate: `0.11.4-rc.1` (`@pollar/core` and `@pollar/react`, on the
-> `next` tag).
+> First candidate: `0.11.4-rc.1` (`@pollar/core`, `@pollar/react` and
+> `@pollar/react-native`, on the `next` tag).
 >
 > Three pieces of work. The platform now creates an end-user's Stellar account
 > in the background instead of inside `POST /auth/login`, so a login returns as
@@ -279,23 +279,14 @@ expired`) and `reviewReason`, which say why a `pending` is pending.
 
 #### `@pollar/react-native`
 
-- The package now lives in this repo. It is versioned on its own (`0.5.3`) and
-  is not bumped by this release.
-- A hosted `KycModal` and a real `RampWidget` with the same requirement gate as
-  the web one: locked routes, the step modals (`RequirementFormModal`,
-  `RegistryCheckModal`, `ProviderRegistrationModal`) and the re-quote after a
-  step.
-- **Fix: `isAuthenticated` and `walletAddress` read the session's
-  `wallet.address`.** They read `wallet.publicKey`, which the session has not
-  carried since core 0.9.0, so `isAuthenticated` stayed `false` for a signed-in
-  user.
-- The package type-checks against the core it ships with: wallet login goes
-  through `login({ provider })`, `refreshBalance()` takes no argument (core
-  ignored the old `publicKey`), `buildTx` / `signAndSubmitTx` return core's
-  outcomes, the login and transaction modals label every auth and transaction
-  step core emits, and `createPollarAdapterHook` uses `PollarAdapter`. Its
-  `tsconfig` resolves `@pollar/core` through the workspace instead of a path into
-  core's sources.
+- **Joins the SDK version line:** `0.1.1` -> `0.11.4-rc.1`, published with core
+  and react, with `@pollar/core@^0.11.4-rc.1` as its only link to core (a peer).
+- A hosted `KycModal` (opens the vendor in the browser and checks on return) and
+  a real `RampWidget` with the same requirement gate as the web one: locked
+  routes, the step modals (`RequirementFormModal`, `RegistryCheckModal`,
+  `ProviderRegistrationModal`, exported) and the re-quote after a step. In
+  `0.1.1` both were previews that simulated the result.
+- `openKycModal()` without a corridor walks the app's own KYC steps.
 
 ### Wallet modals redesign (`@pollar/react`)
 
@@ -387,6 +378,23 @@ for an un-updated client is timing: a payment attempted in the first seconds
 after signup now returns `SDK_WALLET_NOT_READY` instead of succeeding. An app
 that calls `pollKycStatus()` itself or mounts the Send, Swap, Sessions or ramp
 templates itself should read [UPGRADE.md](./UPGRADE.md).
+
+## `@pollar/react-native` 0.1.1
+
+> First release. React Native bindings for Pollar, versioned on their own track. Requires
+> `@pollar/core@^0.11.3`, `react >= 18` and `react-native >= 0.72`.
+
+- `PollarProvider` and `usePollar()`: session state, `login` / `logout`, `buildTx` and
+  `signAndSubmitTx` (returning core's `BuildOutcome` / `SubmitOutcome`), wallet balance,
+  transaction history, network, and entry points for the login, transaction, KYC, ramp, tx
+  history and wallet balance modals, which the provider mounts itself.
+- `<WalletButton>`, `<KycModal>`, `<KycStatus>`, `<RampWidget>`, `<RouteDisplay>`,
+  `<WalletBalanceModal>`, plus a template component for each, styled with `StyleSheet`.
+- `createPollarAdapterHook(key)` over the `PollarAdapter` contract.
+- The provider tears its client down on unmount and builds a single client under StrictMode.
+- Storage, the OAuth opener and the app-state visibility provider come from `@pollar/core`
+  (`storage`, `openAuthUrl` + `oauthRedirectUri`, `visibilityProvider`); the README covers the
+  Expo and bare React Native setup, including the required polyfills.
 
 ## 0.11.3
 

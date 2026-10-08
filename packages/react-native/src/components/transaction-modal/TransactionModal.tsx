@@ -1,8 +1,7 @@
-import { TransactionState, WalletType } from '@pollar/core';
 import React, { useState } from 'react';
 import { View, StyleSheet, TouchableWithoutFeedback, Linking } from 'react-native';
 import { usePollar } from '../../context';
-import { TransactionModalTemplate } from './TransactionModalUI'; // Bypassing cache
+import { TransactionModalTemplate } from './TransactionModalUI';
 
 interface TransactionModalProps {
   onClose: () => void;

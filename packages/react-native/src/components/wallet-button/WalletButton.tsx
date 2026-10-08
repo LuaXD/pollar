@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { usePollar } from '../../context';
-import { WalletButtonTemplate } from './WalletButtonUI'; // Bypassing cache
+import { WalletButtonTemplate } from './WalletButtonUI';
 
 export function WalletButton() {
   const { getClient, walletAddress, styles, openLoginModal, openTxHistoryModal, openWalletBalanceModal } = usePollar();

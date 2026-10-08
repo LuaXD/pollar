@@ -1,7 +1,13 @@
 {
   "name": "@pollar/react-native",
-  "version": "0.5.3",
-  "description": "React Native components for Pollar authentication",
+  "version": "0.11.4-rc.1",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pollar-xyz/pollar.git",
+    "directory": "packages/react-native"
+  },
+  "description": "React Native bindings for Pollar: authentication UI, transaction modals and hooks for Stellar mobile applications",
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -18,7 +24,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "NOTICE"
   ],
   "sideEffects": false,
   "scripts": {
@@ -27,20 +34,20 @@
     "lint": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
-  "peerDependencies": {
-    "@pollar/core": "*",
-    "react": ">=18",
-    "react-native": "*"
+  "engines": {
+    "node": ">=20"
   },
-  "dependencies": {
-    "@pollar/core": "*"
+  "peerDependencies": {
+    "@pollar/core": "^0.11.4-rc.1",
+    "react": ">=18",
+    "react-native": ">=0.72"
   },
   "devDependencies": {
-    "@types/node": "^25.5.2",
+    "@pollar/core": "^0.11.4-rc.1",
     "@types/react": "^18.0.0",
     "react": "^18.0.0",
     "react-native": "^0.72.0",
-    "tsup": "^8.3.0",
+    "tsup": "^8.5.1",
     "typescript": "^6.0.3"
   }
 }
