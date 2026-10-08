@@ -145,12 +145,14 @@ export function RequirementFormModal({ formId, progress, onClose, onSubmitted }:
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const mounted = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Set on every mount: development mounts components twice, and the cleanup of the
+    // first mount would otherwise leave this false and drop every response.
+    mounted.current = true;
+    return () => {
       mounted.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
 
   useEffect(() => {
     client

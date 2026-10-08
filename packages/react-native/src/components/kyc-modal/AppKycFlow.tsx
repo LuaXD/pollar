@@ -33,12 +33,14 @@ export function AppKycFlow({ onClose, country, level, onApproved }: AppKycFlowPr
   // On the first read a complete flow shows its verified state; after a step it just closes.
   const firstRead = useRef(true);
   const mounted = useRef(true);
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    // Set on every mount: development mounts components twice, and the cleanup of the
+    // first mount would otherwise leave this false and drop every response.
+    mounted.current = true;
+    return () => {
       mounted.current = false;
-    },
-    [],
-  );
+    };
+  }, []);
 
   const load = useCallback(async () => {
     kycStepDone.current = false;
