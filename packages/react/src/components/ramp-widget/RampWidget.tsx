@@ -9,7 +9,7 @@ import type {
   RampsOnrampBody,
   RampTxStatus,
 } from '@pollar/core';
-import { mergeRampCountries, mergeRampSnapshot, type RampSnapshot, type RampRoute } from '@pollar/core';
+import { rampReplacementQuote, mergeRampCountries, mergeRampSnapshot, type RampSnapshot, type RampRoute } from '@pollar/core';
 import { RampWorkflow } from './RampWorkflow';
 import { useEffect, useRef, useState } from 'react';
 import { usePollar } from '../../context';
@@ -470,6 +470,14 @@ export function RampWidget({ onClose }: RampWidgetProps) {
       ) as RampResult;
       await applyResult(result);
     } catch (e) {
+      const replacement = rampReplacementQuote(e);
+      if (replacement) {
+        setQuotes([replacement]);
+        setSelectedQuote(null);
+        setStep('select_route');
+        setErrorMsg('The quote changed. Review these exact totals and select the quote to accept them.');
+        return;
+      }
       setErrorMsg(rampErrorMessage(e, 'Failed to start the ramp.'));
       setStep('error');
     } finally {
@@ -578,6 +586,14 @@ export function RampWidget({ onClose }: RampWidgetProps) {
             <RampWorkflow
               client={client}
               snapshot={workflow}
+              onQuoteChanged={(quote) => {
+                setQuotes([quote]);
+                setSelectedQuote(null);
+                setWorkflow(null);
+                setTxId(null);
+                setStep('select_route');
+                setErrorMsg('The quote changed. Review these exact totals and select the quote to accept them.');
+              }}
               onChange={(next) => {
                 if (acceptWorkflow(next)) setTxStatus(next.status);
               }}

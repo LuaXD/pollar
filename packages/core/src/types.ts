@@ -936,7 +936,7 @@ export type TxHistoryState =
 // --- KYC types ----------------------------------------------------------------
 
 export type KycLevel = 'basic' | 'intermediate' | 'enhanced';
-export type KycStatus = 'none' | 'pending' | 'approved' | 'rejected';
+export type KycStatus = 'none' | 'pending' | 'approved' | 'rejected' | 'expired';
 export type KycFlow = 'iframe' | 'form' | 'redirect';
 
 export type KycProvider =

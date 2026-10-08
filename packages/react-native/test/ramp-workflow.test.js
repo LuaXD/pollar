@@ -94,3 +94,66 @@ test('a pending wallet request cannot repeat and its failure is announced', asyn
   expect(screen.getByRole('button', { name: 'Authorize' })).toBeEnabled();
   expect(onChange).not.toHaveBeenCalled();
 });
+
+test('PNG payment instructions use an image and preserve the hosted payment link', () => {
+  const { Linking } = require('react-native');
+  const open = jest.spyOn(Linking, 'openURL').mockResolvedValue();
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7a0AAAAASUVORK5CYII=';
+  const screen = render(
+    <RampWorkflow
+      client={{}}
+      snapshot={{
+        ...base,
+        nextAction: {
+          kind: 'qr_payment',
+          actionId: 'qr',
+          encoding: 'png_base64',
+          payload: png,
+          paymentUrl: 'https://fixture.invalid/pay',
+          amount: '100',
+          currency: 'BOB',
+          expiresAt: null,
+        },
+      }}
+      onChange={jest.fn()}
+      copyText={jest.fn()}
+    />,
+  );
+  expect(screen.getByLabelText('Payment QR code').props.source.uri).toBe('data:image/png;base64,' + png);
+  expect(screen.queryByText('Copy payment code')).toBeNull();
+  fireEvent.press(screen.getByText('Open payment'));
+  expect(open).toHaveBeenCalledWith('https://fixture.invalid/pay');
+  open.mockRestore();
+});
+
+test('a replacement quote returns to review without repeating continuation', async () => {
+  const { PollarApiError } = require('@pollar/core');
+  const replacement = {
+    quoteId: 'replacement',
+    provider: 'Fixture',
+    requiredFields: [],
+    route: { routeId: 'fixture:route' },
+    terms: base.terms,
+    expiresAt: new Date(Date.now() + 900000).toISOString(),
+  };
+  const client = {
+    continueRamp: jest.fn(async () => {
+      throw new PollarApiError('SDK_RAMPS_QUOTE_CHANGED', { replacementQuote: replacement });
+    }),
+  };
+  const onQuoteChanged = jest.fn(),
+    onChange = jest.fn();
+  const screen = render(
+    <RampWorkflow
+      client={client}
+      snapshot={{ ...base, nextAction: { kind: 'user_ready', actionId: 'create-order', purpose: 'create_order' } }}
+      onChange={onChange}
+      onQuoteChanged={onQuoteChanged}
+      copyText={jest.fn()}
+    />,
+  );
+  fireEvent.press(screen.getByText('Continue'));
+  await waitFor(() => expect(onQuoteChanged).toHaveBeenCalledWith(replacement));
+  expect(client.continueRamp).toHaveBeenCalledTimes(1);
+  expect(onChange).not.toHaveBeenCalled();
+});

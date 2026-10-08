@@ -310,6 +310,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/wallet/signer/build": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Build a sponsored signer rotation for an external wallet
+         * @description Builds a setOptions rotation for the session's EXTERNAL wallet: adds `signer`, optionally sets the master key weight and removes existing signers. The app's sponsor pays the fee and the 0.5 XLM reserve of the new signer, and has already signed. The wallet adds its signature and broadcasts via POST /tx/submit before `expiresAt`. Requires the app to sponsor signer rotations and the user to hold an active rotation grant, which is spent once the rotation lands.
+         */
+        post: operations["postWalletSignerBuild"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/wallet/{publicKey}/balance": {
         parameters: {
             query?: never;
@@ -555,7 +575,7 @@ export interface paths {
         put?: never;
         /**
          * Authenticate with a Stellar wallet
-         * @description Verifies the SEP-10 counter-signed challenge (from /auth/wallet/challenge) and sets the session ready. During rollout an unsigned legacy request is still accepted unless SDK_WALLET_REQUIRE_SIGNATURE is enabled.
+         * @description Verifies the SEP-10 counter-signed challenge (from /auth/wallet/challenge) and sets the session ready. A request without the signed challenge is accepted and logged as deprecated while SDK_WALLET_REQUIRE_SIGNATURE is false, and rejected with WALLET_SIGNATURE_REQUIRED when it is true.
          */
         post: operations["postAuthWallet"];
         delete?: never;
@@ -1092,7 +1112,7 @@ export interface paths {
         put?: never;
         /**
          * Start a KYC session
-         * @description Initiates a KYC verification session with the specified provider and level. Returns a sessionId and either a kycUrl (for iframe/redirect flows) or a fields array (for form flows). The session expires in 30 minutes.
+         * @description Creates a session through a configured KYC adapter. Returns the local sessionId and verification URL. Expiry comes from the provider. Supply country for global/multi-country providers and reuse idempotencyKey for retries. Unconfigured providers return 503.
          */
         post: operations["postKycStart"];
         delete?: never;
@@ -3122,6 +3142,137 @@ export interface operations {
             };
         };
     };
+    postWalletSignerBuild: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    signer: string;
+                    /** @default 1 */
+                    signerWeight?: number;
+                    masterWeight?: number;
+                    /** @default [] */
+                    removeSigners?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description Sponsor-signed rotation awaiting the wallet signature */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_WALLET_SIGNER_ROTATION_BUILD";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            sponsorSignedXdr: string;
+                            hash: string;
+                            expiresAt: number;
+                        };
+                    };
+                };
+            };
+            /** @description Validation error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+        };
+    };
     getWalletByPublicKeyBalance: {
         parameters: {
             query: {
@@ -3437,8 +3588,68 @@ export interface operations {
                     };
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
             /** @description Gone (expired) */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3942,8 +4153,68 @@ export interface operations {
                     };
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
             /** @description Gone (expired) */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4052,8 +4323,68 @@ export interface operations {
                     };
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
             /** @description Gone (expired) */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4163,8 +4494,68 @@ export interface operations {
                     };
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
             /** @description Gone (expired) */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4275,8 +4666,68 @@ export interface operations {
                     };
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
             /** @description Gone (expired) */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4395,8 +4846,68 @@ export interface operations {
                     };
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
             /** @description Gone (expired) */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4508,8 +5019,68 @@ export interface operations {
                     };
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
             /** @description Gone (expired) */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4622,8 +5193,68 @@ export interface operations {
                     };
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
             /** @description Gone (expired) */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4732,8 +5363,68 @@ export interface operations {
                     };
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
             /** @description Gone (expired) */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4845,8 +5536,68 @@ export interface operations {
                     };
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
             /** @description Gone (expired) */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4958,8 +5709,68 @@ export interface operations {
                     };
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
             /** @description Gone (expired) */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -5071,8 +5882,68 @@ export interface operations {
                     };
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
             /** @description Gone (expired) */
             410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -6703,6 +7574,7 @@ export interface operations {
     getKycStatus: {
         parameters: {
             query?: {
+                corridorId?: string;
                 providerId?: string;
             };
             header?: never;
@@ -6724,11 +7596,14 @@ export interface operations {
                         success: true;
                         content: {
                             /** @enum {string} */
-                            status: "none" | "pending" | "approved" | "rejected";
+                            status: "none" | "pending" | "approved" | "rejected" | "expired";
                             /** @enum {string} */
                             level?: "basic" | "intermediate" | "enhanced";
-                            providerId: string;
+                            providerId?: string;
+                            /** @enum {string} */
+                            decisionStatus?: "pending" | "manual_review" | "approved" | "rejected" | "expired";
                             expiresAt?: string;
+                            reviewReason?: string;
                         };
                     };
                 };
@@ -6778,11 +7653,57 @@ export interface operations {
                     };
                 };
             };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
         };
     };
     getKycProviders: {
         parameters: {
             query: {
+                corridorId?: string;
                 country: string;
             };
             header?: never;
@@ -6844,6 +7765,51 @@ export interface operations {
                     };
                 };
             };
+            /** @description Not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
         };
     };
     postKycStart: {
@@ -6856,9 +7822,15 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": {
+                    corridorId?: string;
+                    country?: string;
+                    idempotencyKey?: string;
                     providerId: string;
-                    /** @enum {string} */
-                    level: "basic" | "intermediate" | "enhanced";
+                    /**
+                     * @default basic
+                     * @enum {string}
+                     */
+                    level?: "basic" | "intermediate" | "enhanced";
                 };
             };
         };
@@ -6918,6 +7890,81 @@ export interface operations {
             };
             /** @description Provider not found or not enabled for this application */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Gone (expired) */
+            410: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Unprocessable */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Upstream provider error */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        success: false;
+                        code: string;
+                        message?: string;
+                        resultCode?: string;
+                    };
+                };
+            };
+            /** @description Not configured */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -7013,6 +8060,8 @@ export interface operations {
                                 route?: {
                                     routeId: string;
                                     /** @enum {string} */
+                                    execution?: "single_transfer" | "plan";
+                                    /** @enum {string} */
                                     direction: "onramp" | "offramp";
                                     country: string;
                                     fiatCurrency: string;
@@ -7075,6 +8124,10 @@ export interface operations {
                                 fiatAmount: number;
                                 cryptoAmount: number | null;
                                 availableAmount: number | null;
+                            }[];
+                            unavailable?: {
+                                provider: string;
+                                code: string;
                             }[];
                         };
                     };
@@ -7375,6 +8428,8 @@ export interface operations {
                             route?: {
                                 routeId: string;
                                 /** @enum {string} */
+                                execution?: "single_transfer" | "plan";
+                                /** @enum {string} */
                                 direction: "onramp" | "offramp";
                                 country: string;
                                 fiatCurrency: string;
@@ -7438,6 +8493,9 @@ export interface operations {
                             } | {
                                 /** @constant */
                                 kind: "qr_payment";
+                                /** @enum {string} */
+                                encoding?: "text" | "png_base64";
+                                paymentUrl?: string;
                                 actionId: string;
                                 payload: string;
                                 amount: string;
@@ -7662,6 +8720,8 @@ export interface operations {
                             route?: {
                                 routeId: string;
                                 /** @enum {string} */
+                                execution?: "single_transfer" | "plan";
+                                /** @enum {string} */
                                 direction: "onramp" | "offramp";
                                 country: string;
                                 fiatCurrency: string;
@@ -7725,6 +8785,9 @@ export interface operations {
                             } | {
                                 /** @constant */
                                 kind: "qr_payment";
+                                /** @enum {string} */
+                                encoding?: "text" | "png_base64";
+                                paymentUrl?: string;
                                 actionId: string;
                                 payload: string;
                                 amount: string;
@@ -7936,6 +8999,8 @@ export interface operations {
                             route?: {
                                 routeId: string;
                                 /** @enum {string} */
+                                execution?: "single_transfer" | "plan";
+                                /** @enum {string} */
                                 direction: "onramp" | "offramp";
                                 country: string;
                                 fiatCurrency: string;
@@ -7999,6 +9064,9 @@ export interface operations {
                             } | {
                                 /** @constant */
                                 kind: "qr_payment";
+                                /** @enum {string} */
+                                encoding?: "text" | "png_base64";
+                                paymentUrl?: string;
                                 actionId: string;
                                 payload: string;
                                 amount: string;
@@ -8217,6 +9285,8 @@ export interface operations {
                             route?: {
                                 routeId: string;
                                 /** @enum {string} */
+                                execution?: "single_transfer" | "plan";
+                                /** @enum {string} */
                                 direction: "onramp" | "offramp";
                                 country: string;
                                 fiatCurrency: string;
@@ -8280,6 +9350,9 @@ export interface operations {
                             } | {
                                 /** @constant */
                                 kind: "qr_payment";
+                                /** @enum {string} */
+                                encoding?: "text" | "png_base64";
+                                paymentUrl?: string;
                                 actionId: string;
                                 payload: string;
                                 amount: string;
@@ -8499,6 +9572,8 @@ export interface operations {
                             route?: {
                                 routeId: string;
                                 /** @enum {string} */
+                                execution?: "single_transfer" | "plan";
+                                /** @enum {string} */
                                 direction: "onramp" | "offramp";
                                 country: string;
                                 fiatCurrency: string;
@@ -8562,6 +9637,9 @@ export interface operations {
                             } | {
                                 /** @constant */
                                 kind: "qr_payment";
+                                /** @enum {string} */
+                                encoding?: "text" | "png_base64";
+                                paymentUrl?: string;
                                 actionId: string;
                                 payload: string;
                                 amount: string;
@@ -8765,6 +9843,8 @@ export interface operations {
                             routes: {
                                 routeId: string;
                                 /** @enum {string} */
+                                execution?: "single_transfer" | "plan";
+                                /** @enum {string} */
                                 direction: "onramp" | "offramp";
                                 country: string;
                                 fiatCurrency: string;
@@ -8850,6 +9930,8 @@ export interface operations {
                             route?: {
                                 routeId: string;
                                 /** @enum {string} */
+                                execution?: "single_transfer" | "plan";
+                                /** @enum {string} */
                                 direction: "onramp" | "offramp";
                                 country: string;
                                 fiatCurrency: string;
@@ -8913,6 +9995,9 @@ export interface operations {
                             } | {
                                 /** @constant */
                                 kind: "qr_payment";
+                                /** @enum {string} */
+                                encoding?: "text" | "png_base64";
+                                paymentUrl?: string;
                                 actionId: string;
                                 payload: string;
                                 amount: string;

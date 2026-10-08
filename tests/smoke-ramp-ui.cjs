@@ -88,6 +88,25 @@ const base = {
     }),
   );
   assert.equal(document.querySelectorAll('a').length, 2);
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7a0AAAAASUVORK5CYII=';
+  await React.act(async () =>
+    show({
+      ...base,
+      nextAction: {
+        kind: 'qr_payment',
+        actionId: 'qr',
+        encoding: 'png_base64',
+        payload: png,
+        paymentUrl: 'https://fixture.invalid/pay',
+        amount: '100',
+        currency: 'BOB',
+        expiresAt: null,
+      },
+    }),
+  );
+  assert.equal(document.querySelector('img').getAttribute('src'), 'data:image/png;base64,' + png);
+  assert.equal(document.querySelector('a').href, 'https://fixture.invalid/pay');
+  assert.equal(document.querySelector('button'), null);
   await React.act(async () => root.unmount());
   // The exported widget consumes registered route/action data with no provider branch.
   const sdk = require('../packages/core/dist/index.js');
@@ -236,6 +255,44 @@ const base = {
   assert.equal(submissions, 1);
   assert.match(document.body.textContent, /Signature submission rejected/);
   await React.act(async () => legacyRoot.unmount());
+  const changedRoot = createRoot(document.getElementById('root'));
+  let changedWrites = 0;
+  main.createOffRamp = async (body) => {
+    changedWrites++;
+    if (changedWrites === 1)
+      throw new sdk.PollarApiError('SDK_RAMPS_QUOTE_CHANGED', {
+        replacementQuote: {
+          quoteId: 'replacement',
+          provider: 'Registered fixture',
+          route,
+          terms: { ...base.terms, fiatAmount: '21' },
+          fiatAmount: 21,
+          requiredFields: [],
+          fee: 0,
+          feeCurrency: 'MXN',
+          rate: 21,
+          rail: 'FUTURE_BANK',
+          protocol: 'REST',
+          estimatedTime: 'minutes',
+          recommended: false,
+          expiresAt: new Date(Date.now() + 900000).toISOString(),
+          providerExpiresAt: null,
+          availableAmount: null,
+        },
+      });
+    assert.equal(body.quoteId, 'replacement');
+    assert.equal(body.amountExact, '21');
+    return { ...base, provider: 'Registered fixture' };
+  };
+  await startWidget(changedRoot);
+  assert.equal(changedWrites, 1);
+  assert.match(document.body.textContent, /quote changed/i);
+  assert.match(document.body.textContent, /21/);
+  await React.act(async () =>
+    [...document.querySelectorAll('[role=button]')].find((row) => row.textContent.includes('Registered fixture')).click(),
+  );
+  assert.equal(changedWrites, 2);
+  await React.act(async () => changedRoot.unmount());
   main.destroy();
   console.log(
     'Web ramp UI: generic and legacy explicit signing, duplicate protection, failures, exact terms and verification passed.',

@@ -1,4 +1,4 @@
-import type { RampAction, RampRoute, RampCountry, RampsTransactionResponse } from '../types';
+import type { RampAction, RampRoute, RampCountry, RampsTransactionResponse, RampQuote } from '../types';
 export type RampSigningAction = Extract<RampAction, { kind: 'sign_transaction' }>;
 export type RampSigningHandler = (action: RampSigningAction) => Promise<string>;
 export class RampSigningRegistry {
@@ -54,6 +54,7 @@ export function describeRampAction(snapshot: RampSnapshot) {
     details: [] as Array<{ label: string; value: string }>,
     links: [] as Array<{ label: string; url: string }>,
     qr: null as string | null,
+    qrImage: null as string | null,
   };
   if (snapshot.reconciliationRequired)
     return { ...base, title: 'We are checking your transfer. You do not need to start again.' };
@@ -107,8 +108,13 @@ export function describeRampAction(snapshot: RampSnapshot) {
       return {
         ...base,
         title: `Pay ${action.amount} ${action.currency}`,
-        qr: action.payload,
-        details: [{ label: 'Payment code', value: action.payload }],
+        qr: action.encoding === 'png_base64' ? null : action.payload,
+        qrImage: action.encoding === 'png_base64' ? safeRampPng(action.payload) : null,
+        links:
+          action.paymentUrl && safeRampUrl(action.paymentUrl)
+            ? [{ label: 'Open payment', url: safeRampUrl(action.paymentUrl)! }]
+            : [],
+        details: action.encoding === 'png_base64' ? [] : [{ label: 'Payment code', value: action.payload }],
       };
     case 'bank_transfer':
       return {
@@ -141,4 +147,32 @@ export function describeRampAction(snapshot: RampSnapshot) {
     default:
       return { ...base, title: `This action is unsupported. Reference: ${snapshot.txId}` };
   }
+}
+
+/** PNG only: SVG/HTML data URLs must never enter payment instruction rendering. */
+export function safeRampPng(value: string): string | null {
+  const raw = value.replace(/^data:image\/png;base64,/, '');
+  return raw.length <= 2_800_000 && /^iVBORw0KGgo[A-Za-z0-9+/]*={0,2}$/.test(raw) && raw.length % 4 === 0
+    ? 'data:image/png;base64,' + raw
+    : null;
+}
+/** A replacement is only selected for review; this helper never sends a write. */
+export function rampReplacementQuote(error: unknown): RampQuote | null {
+  if (!error || typeof error !== 'object') return null;
+  const e = error as { code?: string; body?: { details?: unknown; replacementQuote?: unknown } };
+  if (
+    e.code !== 'SDK_RAMPS_QUOTE_CHANGED' &&
+    !(e.code === 'SDK_RAMPS_QUOTE_EXPIRED' && String(e.body?.details).startsWith('QUOTE_CHANGED'))
+  )
+    return null;
+  const q = e.body?.replacementQuote as RampQuote | undefined;
+  return q &&
+    typeof q.quoteId === 'string' &&
+    q.terms &&
+    typeof q.terms.fiatAmount === 'string' &&
+    typeof q.terms.cryptoAmount === 'string' &&
+    q.route &&
+    Date.parse(q.expiresAt) > Date.now()
+    ? q
+    : null;
 }

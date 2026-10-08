@@ -10,6 +10,7 @@ const STATUS_CONFIG: Record<KycStatusValue, { label: string; color: string; dot:
   none: { label: 'Not started', color: '#6b7280', dot: false },
   pending: { label: 'Pending review', color: '#f59e0b', dot: true },
   approved: { label: 'Verified', color: '#10b981', dot: false },
+  expired: { label: 'Expired', color: '#6b7280', dot: false },
   rejected: { label: 'Rejected', color: '#ef4444', dot: false },
 };
 

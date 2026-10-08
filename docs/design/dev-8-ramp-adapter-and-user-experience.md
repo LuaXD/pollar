@@ -5,7 +5,7 @@
 - **Audience:** adapter contributors, backend and frontend developers, and operations reviewers.
 - **Tracking:** [DEV-8](https://plane.pollar.dev/pollar-dev/browse/DEV-8/).
 - **Foundations:** [DEV-6 proposed ADR](../adr/0001-ramp-api-and-lifecycle.md) and [DEV-7 lifecycle work](https://plane.pollar.dev/pollar-dev/browse/DEV-7/).
-- **Review:** backend, frontend, and operations walkthroughs pending; no reviewer feedback has been recorded.
+- **Review:** Oscar’s DEV-8 points 2–6 are incorporated in the local framework and migration contracts; production evidence and enrollment reviews remain pending.
 
 For concrete contracts and payloads, start with [shared interfaces](#7-revised-shared-interfaces) and [worked examples](#8-worked-interface-and-payload-examples). The earlier sections explain the product behavior and ownership behind those contracts.
 
@@ -148,7 +148,7 @@ A successful wallet transfer may lead to “Bank payout is processing”; it doe
 
 Pollar's verification policy determines eligibility. An adapter may identify a provider requirement or hosted verification action, but KYC decisions and tiers remain in the separate verification model. Returning from a hosted page alone does not establish verification approval or payment completion.
 
-After verification, Pollar rechecks eligibility and refreshes the provider offer when needed. Public quotes remain valid for 15 minutes; provider expiry is informational. Firm/indicative stays internal and published clients keep their quote/create flow. An explicit policy per route/direction determines permitted changes before final exact terms are saved. Abroad permits no financial drift; Stereum retains its existing crypto-fixed behavior on its legacy path until migration. Changes outside authorization require a fresh accepted quote. Saved operations cannot be repriced.
+After verification, Pollar rechecks eligibility and refreshes the provider offer when needed. Public quotes remain valid for 15 minutes; provider expiry is informational. Firm/indicative stays internal and published clients keep their quote/create flow. An explicit policy per route/direction determines permitted changes before final exact terms are saved. Abroad permits no financial drift; Legacy Stereum retains its characterized handlers. The migrated Stereum adapter requires identical refreshed totals or an explicitly accepted replacement quote and cannot increase the original withdrawal USDC charge. Changes outside authorization require a fresh accepted quote. Saved operations cannot be repriced.
 
 Once an operation has already been accepted and reserved, returning to it retrieves the same transaction; quote expiry must not cause a duplicate create.
 
@@ -244,6 +244,7 @@ type LifecycleTerms = {
 export type Decimal = string;
 export type Route = {
   routeId: string;
+  execution?: 'single_transfer' | 'plan';
   direction: 'onramp' | 'offramp';
   country: string;
   fiatCurrency: string;
@@ -272,7 +273,15 @@ export type RequiredField = {
 export type Action =
   | { kind: 'collect_information'; fields: RequiredField[] }
   | { kind: 'hosted_redirect'; purpose: 'verification' | 'payment'; url: string; expiresAt: string | null }
-  | { kind: 'qr_payment'; payload: string; amount: Decimal; currency: string; expiresAt: string | null }
+  | {
+      kind: 'qr_payment';
+      payload: string;
+      encoding?: 'text' | 'png_base64';
+      paymentUrl?: string | null;
+      amount: Decimal;
+      currency: string;
+      expiresAt: string | null;
+    }
   | {
       kind: 'bank_transfer';
       amount: Decimal;
@@ -321,6 +330,19 @@ export type Offer = {
   requiredFields: RequiredField[];
   availableAmount: Decimal | null;
   kind?: 'firm' | 'indicative';
+  providerData?: Record<string, string>; // Internal accepted provider/bridge terms.
+};
+export type ExecutionPlan = {
+  version: 1;
+  steps: Array<{
+    stepId: string;
+    handlerId: string;
+    kind: 'read' | 'write';
+    purpose: 'progress' | 'source_funding' | 'fiat_settlement' | 'destination_settlement';
+    dependsOn: string[];
+    inputs: Record<string, string | { step: string; field: string }>;
+    limits: Record<string, { max: Decimal; precision: number }>;
+  }>;
 };
 export type OperationIdentity = {
   operationId: string;
@@ -372,6 +394,8 @@ export type Observation = {
   proposedActions: Action[];
   verificationRequired: boolean;
   payment: Payment | null;
+  executionPlan?: ExecutionPlan; // Internal immutable accepted workflow.
+  blockedReason?: string;
 };
 export type Submission =
   | { outcome: 'accepted'; observation: Observation }
@@ -617,3 +641,29 @@ The local shared framework connects the platform HTTP API to `@pollar/core`, Rea
 Before migration: pin current behavior in fixtures, implement adapter, connect background reconciliation and independent settlement checks, test ownership/cutover, then enroll each provider/direction. Anclap expired SEP-10 authentication requires authorized custodial renewal or a saved external signing action resuming the same anchor order. External routes need unattended observation or a documented recovery/escalation process before enrollment. No replacement order or failure/refund is inferred from token expiry.
 
 Rollback stops new enrollment while preserving accepted operation keys, terms, payloads, ownership and reconciliation. Production Abroad fiat payout evidence and Abroad deposit support remain acceptance gaps. The platform `RAMP-FRAMEWORK.md` describes registration, migrations, tests and release order.
+
+## 10. Stereum worked examples and execution-plan extension
+
+Local implementation now exists on `feat/stereum-ramp-adapter`, based on platform PR #15 and library PR #66. This does not establish production provider certification or enrollment. Both live directions remain disabled until exact authenticated BOB receipt/payout readers and production chain verification have been approved.
+
+A multi-step adapter returns `executionPlan` with its accepted order. The plan is stored in the immutable create-operation result. Each step has `stepId`, `handlerId`, `kind`, `purpose`, `dependsOn`, exact `inputs` (or declared earlier-step references), and amount/precision `limits`. Registered handlers prepare/sign, submit and independently observe each chain operation. The generic API and widgets do not interpret provider names. Intermediate proofs are progress; final verified evidence is required for lifecycle completion.
+
+### Deposit: 100 BOB to Stellar USDC
+
+A synthetic 10 BOB/USDT quote with the characterized 30-basis-point bridge factor gives accepted terms `100 BOB → 9.97 USDC`. The public expiry is fifteen minutes; the simulated provider quote lasts one minute. The generic QR action contains a PNG payload (`encoding: 'png_base64'`) and optional HTTPS `paymentUrl`. The widgets display the provider PNG rather than encoding its base64 as a new QR.
+
+The worker verifies the exact fiat receipt and order-bound Polygon USDT deposit, then advances approve, swap, burn, attestation and mint steps. The final saved mint envelope must contain the exact USDC transfer from Circle's forwarder to the authenticated user's Stellar wallet. A swap hash, mint broadcast or provider `PAID` status cannot complete the ramp. Reusing a fiat or Polygon receipt for another operation is rejected by the journal's receipt identity constraint.
+
+### Withdrawal: fresh acceptance without an increased USDC charge
+
+The initial synthetic quote publishes `100 BOB · 10.04 USDC`. If refresh produces `110 BOB · 10.04 USDC`, creation returns a compatible `QUOTE_CHANGED` error and a saved replacement quote. No order or payment is dispatched. Core's `rampReplacementQuote` extracts it; both widgets return to quote review. A second acceptance click authorizes the replacement. The USDC charge stays `10.04`.
+
+The user supplies bank fields and explicitly signs the saved Stellar source-payment action. The backend verifies that source leg and advances the bridge plan. It checks the accepted bank order is still live before transferring Polygon USDT. Only exact authenticated payout evidence bound to the saved bank destination establishes `fiat_paid` and completion.
+
+### Crash, recovery and rollback
+
+Each financial step reserves an immutable request/key and saves the signed envelope and expected hash before dispatch. PostgreSQL account locks serialize new executor operations across replicas. Lost responses are reconciled against that same hash; polling and browser restoration never repeat signing or payment. An unexplained output or expired order leaves a saved manual recovery obligation. There are no automatic refunds or treasury top-ups.
+
+An operator may release a reconciliation hold only after saved hashes have been verified, through the scope/version-bound internal `authorizeObservedExecutionRecovery` function. It refuses unresolved operations and saved balance/receipt obligations, and cannot reprice or replace a plan. Other recovery requires a separately reviewed framework plan. Legacy recovery/refund tools cannot own an enrolled row. Rollback stops new enrollment while the worker retains accepted operations and their original identities.
+
+The backend `STEREUM-ADAPTER.md` describes migrations and production gates. The web demo's `/pollar/ramp/stereum-fixture` uses locally built Core/React packages via yalc and a separate loopback fixture API. Its synthetic receipts and in-memory provider ledger are testing inputs, not production evidence. The shared DEV-16 contract and database harness cover both directions without browser polling.

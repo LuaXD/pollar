@@ -9,7 +9,7 @@ import type { PollarApiClient } from '../client';
 export async function getKycStatus(
   api: PollarApiClient,
   providerId?: string,
-): Promise<{ status: KycStatus; level?: KycLevel | undefined; providerId: string; expiresAt?: string }> {
+): Promise<{ status: KycStatus; level?: KycLevel | undefined; providerId?: string; expiresAt?: string }> {
   const { data, error } = await api.GET('/kyc/status', {
     params: { query: providerId ? { providerId } : {} },
   });

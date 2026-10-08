@@ -123,3 +123,13 @@ const snapshot = {
   console.error(error);
   process.exitCode = 1;
 });
+
+const { safeRampPng, rampReplacementQuote, PollarApiError } = require('../packages/core/dist/index.js');
+const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7a0AAAAASUVORK5CYII=';
+assert.equal(safeRampPng(png), 'data:image/png;base64,' + png);
+assert.equal(safeRampPng('data:image/svg+xml;base64,PHN2Zz4='), null);
+assert.equal(safeRampPng('iVBORw0KGgo<script>'), null);
+const replacement = { quoteId: 'replacement', expiresAt: new Date(Date.now() + 900000).toISOString(), terms: { fiatAmount: '110', cryptoAmount: '10.04' }, route: { routeId: 'route' } };
+assert.equal(rampReplacementQuote(new PollarApiError('SDK_RAMPS_QUOTE_CHANGED', { replacementQuote: replacement })), replacement);
+assert.equal(rampReplacementQuote(new PollarApiError('SDK_RAMPS_QUOTE_EXPIRED', { details: 'QUOTE_CHANGED:request_fresh_quote', replacementQuote: replacement })), replacement);
+assert.equal(rampReplacementQuote(new PollarApiError('SDK_RAMPS_QUOTE_CHANGED', { replacementQuote: { ...replacement, expiresAt: '2000-01-01' } })), null);

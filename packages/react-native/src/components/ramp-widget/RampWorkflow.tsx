@@ -1,17 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Linking, Text, View } from 'react-native';
+import { Image, Linking, Text, View } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
-import { describeRampAction, type PollarClient, type RampSnapshot } from '@pollar/core';
+import { describeRampAction, rampReplacementQuote, type RampQuote, type PollarClient, type RampSnapshot } from '@pollar/core';
 import { ActionButton, Choice, Field, Label } from '../native-ui';
 export function RampWorkflow({
   client,
   snapshot,
   onChange,
+  onQuoteChanged,
   copyText,
 }: {
   client: PollarClient;
   snapshot: RampSnapshot;
   onChange: (next: RampSnapshot) => void;
+  onQuoteChanged?: (quote: RampQuote) => void;
   copyText: (text: string) => unknown;
 }) {
   const model = describeRampAction(snapshot);
@@ -38,6 +40,11 @@ export function RampWorkflow({
             }),
       );
     } catch (e) {
+      const replacement = rampReplacementQuote(e);
+      if (replacement && onQuoteChanged) {
+        onQuoteChanged(replacement);
+        return;
+      }
       setError(e instanceof Error ? e.message : 'Unable to continue.');
     } finally {
       locked.current = false;
@@ -61,6 +68,9 @@ export function RampWorkflow({
       {model.links.map((link, index) => (
         <ActionButton key={index} title={link.label} onPress={() => void Linking.openURL(link.url)} />
       ))}
+      {model.qrImage && (
+        <Image source={{ uri: model.qrImage }} style={{ width: 180, height: 180 }} accessibilityLabel="Payment QR code" />
+      )}
       {model.qr && (
         <>
           <QRCode value={model.qr} />

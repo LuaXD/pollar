@@ -1,15 +1,17 @@
 'use client';
-import { describeRampAction, type PollarClient, type RampSnapshot } from '@pollar/core';
+import { describeRampAction, rampReplacementQuote, type RampQuote, type PollarClient, type RampSnapshot } from '@pollar/core';
 import { QRCode } from '../../lib/qr-code';
 import { useState, useRef, useEffect } from 'react';
 export function RampWorkflow({
   client,
   snapshot,
   onChange,
+  onQuoteChanged,
 }: {
   client: PollarClient;
   snapshot: RampSnapshot;
   onChange: (next: RampSnapshot) => void;
+  onQuoteChanged?: (quote: RampQuote) => void;
 }) {
   const model = describeRampAction(snapshot);
   const locked = useRef(false);
@@ -35,6 +37,11 @@ export function RampWorkflow({
             }),
       );
     } catch (e) {
+      const replacement = rampReplacementQuote(e);
+      if (replacement && onQuoteChanged) {
+        onQuoteChanged(replacement);
+        return;
+      }
       setError(e instanceof Error ? e.message : 'Unable to continue.');
     } finally {
       locked.current = false;
@@ -64,6 +71,7 @@ export function RampWorkflow({
           </a>
         </p>
       ))}
+      {model.qrImage && <img src={model.qrImage} width={180} height={180} alt="Payment QR code" />}
       {model.qr && <QRCode value={model.qr} size={180} />}
       {model.qr && (
         <button type="button" onClick={() => void navigator.clipboard.writeText(model.qr!)}>

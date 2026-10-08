@@ -15,7 +15,7 @@ import type {
   RampsTransactionResponse,
   RampsOnrampResponse,
 } from '@pollar/core';
-import { mergeRampSnapshot } from '@pollar/core';
+import { rampReplacementQuote, mergeRampSnapshot } from '@pollar/core';
 import { RampWorkflow } from './ramp-widget/RampWorkflow';
 import { usePollar } from '../context';
 import { ActionButton, ActionState, Card, Choice, Field, Label, ResultView, useAction } from './native-ui';
@@ -840,16 +840,27 @@ export function RampPanel() {
       ...(fields.fullName ? { fullName: fields.fullName } : {}),
     };
     const bankField = quote.requiredFields.find((f) => f.bankType && fields[f.key]);
-    const result =
-      direction === 'onramp'
-        ? await p.createOnRamp(body)
-        : await p.createOffRamp({
-            ...body,
-            fields,
-            ...(bankField?.bankType ? { bankDetails: { type: bankField.bankType, value: fields[bankField.key]! } } : {}),
-            ...(fields.taxId ? { taxId: fields.taxId } : {}),
-            ...(fields.qrCode ? { qrCode: fields.qrCode } : {}),
-          });
+    let result;
+    try {
+      result =
+        direction === 'onramp'
+          ? await p.createOnRamp(body)
+          : await p.createOffRamp({
+              ...body,
+              fields,
+              ...(bankField?.bankType ? { bankDetails: { type: bankField.bankType, value: fields[bankField.key]! } } : {}),
+              ...(fields.taxId ? { taxId: fields.taxId } : {}),
+              ...(fields.qrCode ? { qrCode: fields.qrCode } : {}),
+            });
+    } catch (e) {
+      const replacement = rampReplacementQuote(e);
+      if (replacement) {
+        setQuotes([replacement]);
+        setQuoteId(replacement.quoteId);
+        throw new Error('The quote changed. Review the new totals and press Confirm to accept them.');
+      }
+      throw e;
+    }
     setTransaction(result);
     clearQuotes();
     return result;
@@ -984,6 +995,11 @@ export function RampPanel() {
             <RampWorkflow
               client={p.getClient()}
               snapshot={transaction}
+              onQuoteChanged={(quote) => {
+                setQuotes([quote]);
+                setQuoteId(quote.quoteId);
+                setTransaction(undefined);
+              }}
               onChange={(next) => setTransaction(next as RampsTransactionResponse)}
               copyText={p.copyText}
             />
