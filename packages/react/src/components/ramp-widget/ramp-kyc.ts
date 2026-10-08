@@ -1,11 +1,14 @@
 import type { RampQuoteRequirement } from '@pollar/core';
 import { kycReviewMessage } from '../kyc-modal/kyc-messages';
 
-/** A requirement step the user must complete before a route: a KYC option or a form. */
+/**
+ * A requirement step the user must complete before a route: a KYC option, a form, a
+ * registry option, or (for PROVIDER_REGISTRATION) the registration of `corridorId`.
+ */
 export type PendingRequirement = {
   rampProviderId: string;
   corridorId: string;
-  type: 'KYC' | 'FORM';
+  type: 'KYC' | 'FORM' | 'REGISTRY_CHECK' | 'PROVIDER_REGISTRATION';
   optionId: string;
   /** Known when it comes from the quote; the start gate does not say. */
   progress?: { position: number; total: number };
@@ -23,7 +26,9 @@ export function requiredRampKyc(error: unknown): PendingRequirement | null {
   if (code !== 'SDK_RAMPS_KYC_REQUIRED' || !body || typeof body !== 'object') return null;
   const { rampProviderId, corridorId, requirementType, optionId, kycProviderId } = body as Record<string, unknown>;
   if (!nonEmpty(rampProviderId) || !nonEmpty(corridorId)) return null;
-  if (requirementType === 'FORM' && nonEmpty(optionId)) return { rampProviderId, corridorId, type: 'FORM', optionId };
+  if ((requirementType === 'FORM' || requirementType === 'REGISTRY_CHECK' || requirementType === 'PROVIDER_REGISTRATION') && nonEmpty(optionId)) {
+    return { rampProviderId, corridorId, type: requirementType, optionId };
+  }
   const kyc = nonEmpty(optionId) && requirementType === 'KYC' ? optionId : kycProviderId;
   return nonEmpty(kyc) ? { rampProviderId, corridorId, type: 'KYC', optionId: kyc } : null;
 }
@@ -49,6 +54,14 @@ export function lockedRouteCopy(requirement: Pick<RampQuoteRequirement, 'status'
   action: string | null;
 } {
   if (requirement.type === 'FORM') return { message: 'Answer a few questions to see this route', action: 'Continue' };
+  if (requirement.type === 'PROVIDER_REGISTRATION') {
+    return { message: 'Register with the provider to see this route', action: 'Continue' };
+  }
+  if (requirement.type === 'REGISTRY_CHECK') {
+    return requirement.status === 'pending'
+      ? { message: 'Your details are under review', action: null }
+      : { message: 'Confirm your details to see this route', action: 'Confirm' };
+  }
   switch (requirement.status) {
     case 'expired':
       return { message: 'Your verification expired', action: 'Verify again' };

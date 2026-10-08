@@ -957,7 +957,9 @@ export type RampQuote =
 export type RampsQuoteResponse = pollarPaths['/ramps/quote']['get']['responses'][200]['content']['application/json']['content'];
 /**
  * A route left out of the quotes because a requirement step of its corridor is
- * pending. For a `KYC` step, open KYC on `optionId` for `corridorId`, then quote again.
+ * pending. For a `KYC` step, open KYC on `optionId` for `corridorId`; for `FORM`, the
+ * form `optionId`; for `REGISTRY_CHECK`, the registry option `optionId`; for
+ * `PROVIDER_REGISTRATION`, the registration of `corridorId`. Then quote again.
  */
 export type RampQuoteRequirement = NonNullable<RampsQuoteResponse['requirementsRequired']>[number];
 
@@ -971,6 +973,24 @@ export type RequirementFormSubmitted =
 /** The app's own KYC steps and the user's progress on them (GET /requirements). */
 export type AppRequirements = pollarPaths['/requirements']['get']['responses'][200]['content']['application/json']['content'];
 export type AppRequirementStep = NonNullable<AppRequirements['next']>;
+/**
+ * A REGISTRY_CHECK step (SEGIP): the data that will be checked, read from the user's
+ * verified identity, and the user's status on the option. Only the surname split and
+ * the CI complement can be changed.
+ */
+export type RegistryCheck =
+  pollarPaths['/requirements/registry/{optionId}']['get']['responses'][200]['content']['application/json']['content'];
+export type RegistryCheckPrefill = Extract<RegistryCheck['prefill'], { applies: true }>;
+export type RegistryCheckEdit = NonNullable<
+  pollarPaths['/requirements/registry/{optionId}']['post']['requestBody']
+>['content']['application/json'];
+export type RegistryCheckSubmitted =
+  pollarPaths['/requirements/registry/{optionId}']['post']['responses'][200]['content']['application/json']['content'];
+/** A PROVIDER_REGISTRATION step: whether the user is registered with the ramp, can be now, and what is shared. */
+export type ProviderRegistration =
+  pollarPaths['/requirements/registration/{corridorId}']['get']['responses'][200]['content']['application/json']['content'];
+export type ProviderRegistrationSubmitted =
+  pollarPaths['/requirements/registration/{corridorId}']['post']['responses'][200]['content']['application/json']['content'];
 /** One field the server refused, from a KYC_FORM_INVALID_ANSWERS error's `body.errors`. */
 export type RequirementFormAnswerError = { key: string; code: string };
 

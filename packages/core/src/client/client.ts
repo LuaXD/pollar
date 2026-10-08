@@ -3,7 +3,15 @@ import { claimDistributionRule, listDistributionRules } from '../api/endpoints/d
 import { getSwapConfig, getSwapTokens, quoteSwap } from '../api/endpoints/swap';
 import { buildEarnTx, getEarnOpportunities, getEarnPosition, getEarnProviders } from '../api/endpoints/earn';
 import { getKycProviders, getKycStatus, pollKycDecision, pollKycStatus, resolveKyc, startKyc } from '../api/endpoints/kyc';
-import { getAppRequirements, getRequirementForm, submitRequirementForm } from '../api/endpoints/requirements';
+import {
+  getAppRequirements,
+  getProviderRegistration,
+  getRegistryCheck,
+  getRequirementForm,
+  submitProviderRegistration,
+  submitRegistryCheck,
+  submitRequirementForm,
+} from '../api/endpoints/requirements';
 import {
   completeWithdraw,
   createOffRamp,
@@ -57,6 +65,11 @@ import {
   RequirementForm,
   RequirementFormAnswers,
   RequirementFormSubmitted,
+  RegistryCheck,
+  RegistryCheckEdit,
+  RegistryCheckSubmitted,
+  ProviderRegistration,
+  ProviderRegistrationSubmitted,
   NetworkState,
   PasskeyCeremony,
   PasskeySigner,
@@ -3303,6 +3316,22 @@ export class PollarClient {
 
   submitRequirementForm(formId: string, answers: RequirementFormAnswers): Promise<RequirementFormSubmitted> {
     return submitRequirementForm(this._api, formId, answers);
+  }
+
+  getRegistryCheck(optionId: string): Promise<RegistryCheck> {
+    return getRegistryCheck(this._api, optionId);
+  }
+
+  submitRegistryCheck(optionId: string, edit: RegistryCheckEdit): Promise<RegistryCheckSubmitted> {
+    return submitRegistryCheck(this._api, optionId, edit);
+  }
+
+  getProviderRegistration(corridorId: string): Promise<ProviderRegistration> {
+    return getProviderRegistration(this._api, corridorId);
+  }
+
+  submitProviderRegistration(corridorId: string): Promise<ProviderRegistrationSubmitted> {
+    return submitProviderRegistration(this._api, corridorId);
   }
 
   // --- KYC ------------------------------------------------------------------

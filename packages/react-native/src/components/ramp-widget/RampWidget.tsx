@@ -15,6 +15,8 @@ import { PollarModalFooter } from '../commons';
 import { KycModal } from '../kyc-modal/KycModal';
 import { RouteDisplay } from './RouteDisplay';
 import { RequirementFormModal } from '../requirement-form-modal/RequirementFormModal';
+import { RegistryCheckModal } from '../registry-check-modal/RegistryCheckModal';
+import { ProviderRegistrationModal } from '../provider-registration-modal/ProviderRegistrationModal';
 import { lockedRouteCopy, pendingFromQuote, requiredRampKyc, type PendingRequirement } from './ramp-kyc';
 
 export type RampStep = 'input' | 'loading_quote' | 'select_route' | 'contact' | 'status' | 'error';
@@ -623,9 +625,9 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
     setQuotes(quoted.list);
     setKycRequired(quoted.locked);
     setNoticeMsg(
-      completed === 'FORM'
-        ? 'Thanks, your details are saved. Prices may have changed, so choose a route to continue.'
-        : 'Your identity is verified. Prices may have changed, so choose a route to continue.',
+      completed === 'KYC'
+        ? 'Your identity is verified. Prices may have changed, so choose a route to continue.'
+        : 'Thanks, your details are saved. Prices may have changed, so choose a route to continue.',
     );
     setStep('select_route');
   }
@@ -710,9 +712,9 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
       if (requirement) {
         setStep(requiredFieldsOf(quote).length ? 'contact' : 'select_route');
         setErrorMsg(
-          requirement.type === 'FORM'
-            ? 'A few more details are required before continuing.'
-            : 'Identity verification is required before continuing.',
+          requirement.type === 'KYC'
+            ? 'Identity verification is required before continuing.'
+            : 'A few more details are required before continuing.',
         );
         kycAttempt.current = requirement;
         setPendingKyc(requirement);
@@ -779,6 +781,28 @@ export function RampWidget({ onClose }: { onClose: () => void }) {
           setPendingKyc(null);
           void requoteAfterKyc('FORM');
         }}
+      />
+    );
+  }
+
+  if (pendingKyc?.type === 'REGISTRY_CHECK' || pendingKyc?.type === 'PROVIDER_REGISTRATION') {
+    const close = () => {
+      kycAttempt.current = null;
+      setPendingKyc(null);
+    };
+    const done = () => {
+      if (kycAttempt.current !== pendingKyc) return;
+      close();
+      void requoteAfterKyc(pendingKyc.type);
+    };
+    return pendingKyc.type === 'REGISTRY_CHECK' ? (
+      <RegistryCheckModal optionId={pendingKyc.optionId} progress={pendingKyc.progress} onClose={close} onApproved={done} />
+    ) : (
+      <ProviderRegistrationModal
+        corridorId={pendingKyc.corridorId}
+        progress={pendingKyc.progress}
+        onClose={close}
+        onRegistered={done}
       />
     );
   }
