@@ -7905,7 +7905,8 @@ export interface operations {
                 amountDenomination?: "fiat" | "crypto";
                 amountExact?: string;
                 routeId?: string;
-                chain?: string;
+                /** @enum {string} */
+                chain?: "STELLAR" | "POLYGON" | "SOLANA";
                 direction: "onramp" | "offramp";
             };
             header?: never;
@@ -7937,7 +7938,8 @@ export interface operations {
                                     asset: {
                                         code: string;
                                         identifier: string | null;
-                                        chain: string;
+                                        /** @enum {string} */
+                                        chain: "STELLAR" | "POLYGON" | "SOLANA";
                                         network: string;
                                         precision: number;
                                     };
@@ -7955,7 +7957,8 @@ export interface operations {
                                     feeAmount: string;
                                     feeCurrency: string;
                                     assetCode: string;
-                                    assetChain: string;
+                                    /** @enum {string} */
+                                    assetChain: "STELLAR" | "POLYGON" | "SOLANA";
                                     assetIssuer: string | null;
                                 };
                                 quoteId: string;
@@ -8319,7 +8322,8 @@ export interface operations {
                                 asset: {
                                     code: string;
                                     identifier: string | null;
-                                    chain: string;
+                                    /** @enum {string} */
+                                    chain: "STELLAR" | "POLYGON" | "SOLANA";
                                     network: string;
                                     precision: number;
                                 };
@@ -8419,7 +8423,8 @@ export interface operations {
                                 actionId: string;
                                 /** @enum {string} */
                                 purpose: "authentication" | "withdrawal_payment" | "onramp_claim";
-                                chain: string;
+                                /** @enum {string} */
+                                chain: "STELLAR" | "POLYGON" | "SOLANA";
                                 network: string;
                                 challengeRef: string;
                                 payload: {
@@ -8431,12 +8436,14 @@ export interface operations {
                                 /** @constant */
                                 kind: "chain_transfer";
                                 actionId: string;
-                                chain: string;
+                                /** @enum {string} */
+                                chain: "STELLAR" | "POLYGON" | "SOLANA";
                                 network: string;
                                 asset: {
                                     code: string;
                                     identifier: string | null;
-                                    chain: string;
+                                    /** @enum {string} */
+                                    chain: "STELLAR" | "POLYGON" | "SOLANA";
                                     network: string;
                                     precision: number;
                                 };
@@ -8454,7 +8461,8 @@ export interface operations {
                                 feeAmount: string;
                                 feeCurrency: string;
                                 assetCode: string;
-                                assetChain: string;
+                                /** @enum {string} */
+                                assetChain: "STELLAR" | "POLYGON" | "SOLANA";
                                 assetIssuer: string | null;
                             };
                             lastCheckedAt?: string | null;
@@ -8470,7 +8478,8 @@ export interface operations {
                             anchorTransactionId?: string;
                             stellarTxHash?: string;
                             txHash?: string;
-                            chain?: string;
+                            /** @enum {string} */
+                            chain?: "STELLAR" | "POLYGON" | "SOLANA";
                             pendingSignature?: {
                                 unsignedXdr: string;
                                 /** @enum {string} */
@@ -8606,7 +8615,8 @@ export interface operations {
                                 asset: {
                                     code: string;
                                     identifier: string | null;
-                                    chain: string;
+                                    /** @enum {string} */
+                                    chain: "STELLAR" | "POLYGON" | "SOLANA";
                                     network: string;
                                     precision: number;
                                 };
@@ -8706,7 +8716,8 @@ export interface operations {
                                 actionId: string;
                                 /** @enum {string} */
                                 purpose: "authentication" | "withdrawal_payment" | "onramp_claim";
-                                chain: string;
+                                /** @enum {string} */
+                                chain: "STELLAR" | "POLYGON" | "SOLANA";
                                 network: string;
                                 challengeRef: string;
                                 payload: {
@@ -8718,12 +8729,14 @@ export interface operations {
                                 /** @constant */
                                 kind: "chain_transfer";
                                 actionId: string;
-                                chain: string;
+                                /** @enum {string} */
+                                chain: "STELLAR" | "POLYGON" | "SOLANA";
                                 network: string;
                                 asset: {
                                     code: string;
                                     identifier: string | null;
-                                    chain: string;
+                                    /** @enum {string} */
+                                    chain: "STELLAR" | "POLYGON" | "SOLANA";
                                     network: string;
                                     precision: number;
                                 };
@@ -8741,7 +8754,8 @@ export interface operations {
                                 feeAmount: string;
                                 feeCurrency: string;
                                 assetCode: string;
-                                assetChain: string;
+                                /** @enum {string} */
+                                assetChain: "STELLAR" | "POLYGON" | "SOLANA";
                                 assetIssuer: string | null;
                             };
                             lastCheckedAt?: string | null;
@@ -8757,7 +8771,8 @@ export interface operations {
                             anchorTransactionId?: string;
                             stellarTxHash?: string;
                             txHash?: string;
-                            chain?: string;
+                            /** @enum {string} */
+                            chain?: "STELLAR" | "POLYGON" | "SOLANA";
                             pendingSignature?: {
                                 unsignedXdr: string;
                                 /** @enum {string} */
@@ -8880,7 +8895,8 @@ export interface operations {
                                 asset: {
                                     code: string;
                                     identifier: string | null;
-                                    chain: string;
+                                    /** @enum {string} */
+                                    chain: "STELLAR" | "POLYGON" | "SOLANA";
                                     network: string;
                                     precision: number;
                                 };
@@ -8980,7 +8996,8 @@ export interface operations {
                                 actionId: string;
                                 /** @enum {string} */
                                 purpose: "authentication" | "withdrawal_payment" | "onramp_claim";
-                                chain: string;
+                                /** @enum {string} */
+                                chain: "STELLAR" | "POLYGON" | "SOLANA";
                                 network: string;
                                 challengeRef: string;
                                 payload: {
@@ -8992,12 +9009,14 @@ export interface operations {
                                 /** @constant */
                                 kind: "chain_transfer";
                                 actionId: string;
-                                chain: string;
+                                /** @enum {string} */
+                                chain: "STELLAR" | "POLYGON" | "SOLANA";
                                 network: string;
                                 asset: {
                                     code: string;
                                     identifier: string | null;
-                                    chain: string;
+                                    /** @enum {string} */
+                                    chain: "STELLAR" | "POLYGON" | "SOLANA";
                                     network: string;
                                     precision: number;
                                 };
@@ -9015,7 +9034,8 @@ export interface operations {
                                 feeAmount: string;
                                 feeCurrency: string;
                                 assetCode: string;
-                                assetChain: string;
+                                /** @enum {string} */
+                                assetChain: "STELLAR" | "POLYGON" | "SOLANA";
                                 assetIssuer: string | null;
                             };
                             lastCheckedAt?: string | null;
@@ -9031,7 +9051,8 @@ export interface operations {
                             anchorTransactionId?: string;
                             stellarTxHash?: string;
                             txHash?: string;
-                            chain?: string;
+                            /** @enum {string} */
+                            chain?: "STELLAR" | "POLYGON" | "SOLANA";
                             pendingSignature?: {
                                 unsignedXdr: string;
                                 /** @enum {string} */
@@ -9161,7 +9182,8 @@ export interface operations {
                                 asset: {
                                     code: string;
                                     identifier: string | null;
-                                    chain: string;
+                                    /** @enum {string} */
+                                    chain: "STELLAR" | "POLYGON" | "SOLANA";
                                     network: string;
                                     precision: number;
                                 };
@@ -9261,7 +9283,8 @@ export interface operations {
                                 actionId: string;
                                 /** @enum {string} */
                                 purpose: "authentication" | "withdrawal_payment" | "onramp_claim";
-                                chain: string;
+                                /** @enum {string} */
+                                chain: "STELLAR" | "POLYGON" | "SOLANA";
                                 network: string;
                                 challengeRef: string;
                                 payload: {
@@ -9273,12 +9296,14 @@ export interface operations {
                                 /** @constant */
                                 kind: "chain_transfer";
                                 actionId: string;
-                                chain: string;
+                                /** @enum {string} */
+                                chain: "STELLAR" | "POLYGON" | "SOLANA";
                                 network: string;
                                 asset: {
                                     code: string;
                                     identifier: string | null;
-                                    chain: string;
+                                    /** @enum {string} */
+                                    chain: "STELLAR" | "POLYGON" | "SOLANA";
                                     network: string;
                                     precision: number;
                                 };
@@ -9296,7 +9321,8 @@ export interface operations {
                                 feeAmount: string;
                                 feeCurrency: string;
                                 assetCode: string;
-                                assetChain: string;
+                                /** @enum {string} */
+                                assetChain: "STELLAR" | "POLYGON" | "SOLANA";
                                 assetIssuer: string | null;
                             };
                             lastCheckedAt?: string | null;
@@ -9312,7 +9338,8 @@ export interface operations {
                             anchorTransactionId?: string;
                             stellarTxHash?: string;
                             txHash?: string;
-                            chain?: string;
+                            /** @enum {string} */
+                            chain?: "STELLAR" | "POLYGON" | "SOLANA";
                             pendingSignature?: {
                                 unsignedXdr: string;
                                 /** @enum {string} */
@@ -9443,7 +9470,8 @@ export interface operations {
                                 asset: {
                                     code: string;
                                     identifier: string | null;
-                                    chain: string;
+                                    /** @enum {string} */
+                                    chain: "STELLAR" | "POLYGON" | "SOLANA";
                                     network: string;
                                     precision: number;
                                 };
@@ -9543,7 +9571,8 @@ export interface operations {
                                 actionId: string;
                                 /** @enum {string} */
                                 purpose: "authentication" | "withdrawal_payment" | "onramp_claim";
-                                chain: string;
+                                /** @enum {string} */
+                                chain: "STELLAR" | "POLYGON" | "SOLANA";
                                 network: string;
                                 challengeRef: string;
                                 payload: {
@@ -9555,12 +9584,14 @@ export interface operations {
                                 /** @constant */
                                 kind: "chain_transfer";
                                 actionId: string;
-                                chain: string;
+                                /** @enum {string} */
+                                chain: "STELLAR" | "POLYGON" | "SOLANA";
                                 network: string;
                                 asset: {
                                     code: string;
                                     identifier: string | null;
-                                    chain: string;
+                                    /** @enum {string} */
+                                    chain: "STELLAR" | "POLYGON" | "SOLANA";
                                     network: string;
                                     precision: number;
                                 };
@@ -9578,7 +9609,8 @@ export interface operations {
                                 feeAmount: string;
                                 feeCurrency: string;
                                 assetCode: string;
-                                assetChain: string;
+                                /** @enum {string} */
+                                assetChain: "STELLAR" | "POLYGON" | "SOLANA";
                                 assetIssuer: string | null;
                             };
                             lastCheckedAt?: string | null;
@@ -9600,7 +9632,8 @@ export interface operations {
                             anchorTransactionId?: string;
                             stellarTxHash?: string;
                             txHash?: string;
-                            chain?: string;
+                            /** @enum {string} */
+                            chain?: "STELLAR" | "POLYGON" | "SOLANA";
                             depositInstructions?: {
                                 scannable?: {
                                     /** @enum {string} */
@@ -9709,7 +9742,8 @@ export interface operations {
                                 asset: {
                                     code: string;
                                     identifier: string | null;
-                                    chain: string;
+                                    /** @enum {string} */
+                                    chain: "STELLAR" | "POLYGON" | "SOLANA";
                                     network: string;
                                     precision: number;
                                 };
@@ -9794,7 +9828,8 @@ export interface operations {
                                 asset: {
                                     code: string;
                                     identifier: string | null;
-                                    chain: string;
+                                    /** @enum {string} */
+                                    chain: "STELLAR" | "POLYGON" | "SOLANA";
                                     network: string;
                                     precision: number;
                                 };
@@ -9894,7 +9929,8 @@ export interface operations {
                                 actionId: string;
                                 /** @enum {string} */
                                 purpose: "authentication" | "withdrawal_payment" | "onramp_claim";
-                                chain: string;
+                                /** @enum {string} */
+                                chain: "STELLAR" | "POLYGON" | "SOLANA";
                                 network: string;
                                 challengeRef: string;
                                 payload: {
@@ -9906,12 +9942,14 @@ export interface operations {
                                 /** @constant */
                                 kind: "chain_transfer";
                                 actionId: string;
-                                chain: string;
+                                /** @enum {string} */
+                                chain: "STELLAR" | "POLYGON" | "SOLANA";
                                 network: string;
                                 asset: {
                                     code: string;
                                     identifier: string | null;
-                                    chain: string;
+                                    /** @enum {string} */
+                                    chain: "STELLAR" | "POLYGON" | "SOLANA";
                                     network: string;
                                     precision: number;
                                 };
@@ -9929,7 +9967,8 @@ export interface operations {
                                 feeAmount: string;
                                 feeCurrency: string;
                                 assetCode: string;
-                                assetChain: string;
+                                /** @enum {string} */
+                                assetChain: "STELLAR" | "POLYGON" | "SOLANA";
                                 assetIssuer: string | null;
                             };
                             lastCheckedAt?: string | null;
@@ -9951,7 +9990,8 @@ export interface operations {
                             anchorTransactionId?: string;
                             stellarTxHash?: string;
                             txHash?: string;
-                            chain?: string;
+                            /** @enum {string} */
+                            chain?: "STELLAR" | "POLYGON" | "SOLANA";
                             depositInstructions?: {
                                 scannable?: {
                                     /** @enum {string} */

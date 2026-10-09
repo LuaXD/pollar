@@ -14,7 +14,7 @@ const base = {
     fiatCurrency: 'BOB',
     cryptoAmount: '1.123456789012',
     assetCode: 'NATIVE',
-    assetChain: 'FUTURE_CHAIN',
+    assetChain: 'POLYGON',
     feeAmount: '0',
     feeCurrency: 'BOB',
     assetIssuer: null,
@@ -23,14 +23,14 @@ const base = {
     kind: 'sign_transaction',
     actionId: 'saved-action',
     purpose: 'withdrawal_payment',
-    chain: 'FUTURE_CHAIN',
+    chain: 'POLYGON',
     network: 'mainnet',
     challengeRef: 'saved-challenge',
     payload: { encoding: 'fixture-json', value: 'unsigned' },
     expiresAt: new Date(Date.now() + 60000).toISOString(),
   },
 };
-test('future-chain action renders exact terms and signs only after an explicit press', async () => {
+test('Polygon action renders exact terms and signs only after an explicit press', async () => {
   const client = {
     signRampAction: jest.fn(async () => ({
       ...base,

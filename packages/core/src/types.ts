@@ -1011,6 +1011,14 @@ export type KycStartResponse = pollarPaths['/kyc/start']['post']['responses'][20
 
 // --- Ramps types --------------------------------------------------------------
 
+/** Closed ramp chain catalog, independent of wallet networks. */
+export const RampChain = Object.freeze({
+  STELLAR: 'STELLAR',
+  POLYGON: 'POLYGON',
+  SOLANA: 'SOLANA',
+} as const);
+export type RampChain = (typeof RampChain)[keyof typeof RampChain];
+
 export type RampsQuoteQuery = NonNullable<pollarPaths['/ramps/quote']['get']['parameters']['query']>;
 export type RampQuote =
   pollarPaths['/ramps/quote']['get']['responses'][200]['content']['application/json']['content']['quotes'][number];

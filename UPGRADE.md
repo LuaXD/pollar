@@ -31,6 +31,21 @@ with a core peer range of only `^0.11.2` cannot be used with core 0.12.
   state, alongside the bound core methods and modal actions. Update manually
   constructed context mocks to match this shape.
 
+### Ramp chain catalog
+
+`RampChain` is a closed enum with `STELLAR`, `POLYGON` and `SOLANA`, exported as
+both a type and a runtime constant from `@pollar/core`. It is independent of
+`WalletChain` / backend `WalletNetwork`. Quotes, route assets, terms,
+transactions and signing handlers use this same catalog. Lowercase values,
+typos and CAIP-2 identifiers are rejected rather than normalized, including at
+runtime for JavaScript callers and API responses. Network remains a separate
+field; derive a CAIP-2 identifier from the chain and network when needed.
+
+Use `RampChain.SOLANA` or the literal `'SOLANA'`. Adding a new chain requires a
+backend enum migration and an updated SDK contract. Provider, asset and payload
+encoding registration stays extensible within these three chains. Exact amount
+strings retain their precision and formatting.
+
 ### Ramp templates and signing
 
 `RampWidgetTemplateProps.bankType` (and native template-derived props) accepts a
@@ -38,7 +53,7 @@ with a core peer range of only `^0.11.2` cannot be used with core 0.12.
 bank types. Custom templates should handle unknown strings and retain known-type
 formatting where applicable; exhaustive switches need a fallback.
 
-Custom chains register a signer with `registerRampSigningHandler(chain, encoding,
+Supported ramp chains register a signer with `registerRampSigningHandler(chain, encoding,
 handler)` and remove it with the returned cleanup function. Call `signRampAction`
 only from an explicit user action. Its built-in Stellar signer verifies the wallet
 account from the transaction source, or the first SEP-10 manageData operation for

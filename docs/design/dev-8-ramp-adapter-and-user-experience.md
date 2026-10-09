@@ -22,7 +22,7 @@ Success means:
 - Backend developers know which decisions belong to shared orchestration.
 - Adding a provider generally requires an adapter and configuration, without changing shared transaction logic.
 
-The shared contract supports any declared fiat currency or token, including same-asset routes, native assets and future chains. Each provider/chain/verification integration must be available and tested before a route is executable. Abroad initially migrates verified Stellar-USDC withdrawals; the synthetic reference covers both directions. Examples are fixtures, not certified provider capabilities.
+The shared contract supports any declared fiat currency or token, including same-asset routes, native assets on the closed `RampChain` catalog (`STELLAR`, `POLYGON`, `SOLANA`). Each provider/chain/verification integration must be available and tested before a route is executable. Abroad initially migrates verified Stellar-USDC withdrawals; the synthetic reference covers both directions. Examples are fixtures, not certified provider capabilities.
 
 ## 2. How the system works
 
@@ -229,6 +229,9 @@ Frontend components and operational screens are specified as consumers of the ad
 These declarations match the local DEV-8/DEV-10 framework. This is not a published release or a claim that all providers are migrated. Internal provider observations and credentials are not frontend authority. `RampAction`, `RampTerms`, `RampRoute` and continuation types in the public library are generated from the matching backend OpenAPI schema.
 
 ```ts
+// Separate from WalletNetwork. Adding a chain requires a backend enum migration.
+type RampChain = 'STELLAR' | 'POLYGON' | 'SOLANA';
+
 type LifecycleTerms = {
   fiatCurrency: string;
   fiatAmount: string;
@@ -236,7 +239,7 @@ type LifecycleTerms = {
   feeAmount: string;
   feeCurrency: string;
   assetCode: string;
-  assetChain: string;
+  assetChain: RampChain;
   assetIssuer: string | null;
 };
 
@@ -248,7 +251,7 @@ export type Route = {
   country: string;
   fiatCurrency: string;
   rail: string;
-  asset: { code: string; identifier: string | null; chain: string; network: string; precision: number };
+  asset: { code: string; identifier: string | null; chain: RampChain; network: string; precision: number };
   limits: { denomination: 'fiat' | 'crypto'; min: Decimal | null; max: Decimal | null };
 };
 export type UserContext = {
@@ -256,7 +259,7 @@ export type UserContext = {
   sdkUserId: string;
   providerId: string;
   configurationId: string;
-  wallet: { address: string; chain: string; network: 'testnet' | 'mainnet'; custody: 'custodial' | 'external' };
+  wallet: { address: string; chain: RampChain; network: 'testnet' | 'mainnet'; custody: 'custodial' | 'external' };
 };
 export type RequiredField = {
   key: string;
@@ -295,7 +298,7 @@ export type Action =
     }
   | {
       kind: 'chain_transfer';
-      chain: string;
+      chain: RampChain;
       network: string;
       asset: Route['asset'];
       amount: Decimal;
@@ -305,7 +308,7 @@ export type Action =
   | {
       kind: 'sign_transaction';
       purpose: 'authentication' | 'withdrawal_payment' | 'onramp_claim';
-      chain: string;
+      chain: RampChain;
       network: string;
       challengeRef: string;
       payload: { encoding: string; value: string };
@@ -349,7 +352,7 @@ export class AdapterError extends Error {
   }
 }
 export type Payment = {
-  chain: string;
+  chain: RampChain;
   network: string;
   assetCode: string;
   identifier: string | null;
@@ -362,7 +365,7 @@ export type Payment = {
 export type ProviderFact =
   | { kind: 'provider_processing' }
   | { kind: 'fiat_receipt_reported' | 'fiat_payout_reported'; reference: string | null }
-  | { kind: 'chain_transaction_reported'; chain: string; hash: string; leg: 'source' | 'intermediate' | 'destination' }
+  | { kind: 'chain_transaction_reported'; chain: RampChain; hash: string; leg: 'source' | 'intermediate' | 'destination' }
   | { kind: 'provider_rejection_reported' };
 export type Observation = {
   providerOrderRef: string | null;
@@ -612,7 +615,7 @@ The later DEV-8 resolutions replace the original fixed Stellar/USDC types and sh
 
 ## Implementation and enrollment notes (2026-10-06)
 
-The local shared framework connects the platform HTTP API to `@pollar/core`, React and React Native. Abroad is its first adapter; other providers remain on their existing handlers. The reference provider demonstrates BOB/PEN/MXN, both directions, a future chain and twelve-decimal native assets through registration. Real execution initially includes Stellar only.
+The local shared framework connects the platform HTTP API to `@pollar/core`, React and React Native. Abroad is its first adapter; other providers remain on their existing handlers. The reference provider demonstrates BOB/PEN/MXN, both directions, a Polygon fixture and twelve-decimal native assets through registration. Real execution initially includes Stellar only.
 
 Before migration: pin current behavior in fixtures, implement adapter, connect background reconciliation and independent settlement checks, test ownership/cutover, then enroll each provider/direction. Anclap expired SEP-10 authentication requires authorized custodial renewal or a saved external signing action resuming the same anchor order. External routes need unattended observation or a documented recovery/escalation process before enrollment. No replacement order or failure/refund is inferred from token expiry.
 

@@ -23,7 +23,7 @@ const base = {
     fiatCurrency: 'MXN',
     cryptoAmount: '1.123456789012',
     assetCode: 'NATIVE',
-    assetChain: 'FUTURE_CHAIN',
+    assetChain: 'POLYGON',
     feeAmount: '0',
     feeCurrency: 'MXN',
     assetIssuer: null,
@@ -32,7 +32,7 @@ const base = {
     kind: 'sign_transaction',
     actionId: 'saved-action',
     purpose: 'withdrawal_payment',
-    chain: 'FUTURE_CHAIN',
+    chain: 'POLYGON',
     network: 'mainnet',
     challengeRef: 'saved-challenge',
     payload: { encoding: 'fixture-json', value: 'unsigned' },
@@ -104,7 +104,7 @@ const base = {
     country: 'MX',
     fiatCurrency: 'MXN',
     rail: 'FUTURE_BANK',
-    asset: { code: 'NATIVE', identifier: null, chain: 'FUTURE_CHAIN', network: 'mainnet', precision: 12 },
+    asset: { code: 'NATIVE', identifier: null, chain: 'POLYGON', network: 'mainnet', precision: 12 },
     limits: { denomination: 'crypto', min: '0.000000000001', max: '100' },
     providerId: 'fixture-provider',
     provider: 'Registered fixture',
@@ -115,7 +115,7 @@ const base = {
   main.getRampRoutes = async () => ({ routes: [route] });
   main.getRampCountries = async () => ({ countries: [] });
   main.getRampsQuote = async (query) => {
-    assert.equal(query.chain, 'FUTURE_CHAIN');
+    assert.equal(query.chain, 'POLYGON');
     assert.equal(query.currency, 'MXN');
     return {
       quotes: [
@@ -152,7 +152,7 @@ const base = {
     transactionVersion: 3,
     nextAction: { kind: 'wait', actionId: 'wait', reason: 'settlement_verification' },
   });
-  main.registerRampSigningHandler('FUTURE_CHAIN', 'fixture-json', async () => {
+  main.registerRampSigningHandler('POLYGON', 'fixture-json', async () => {
     walletSigns++;
     return 'signed:unsigned';
   });

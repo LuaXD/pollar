@@ -552,3 +552,11 @@ Source locations inspected in the platform baseline: `apps/sdk-api/src/schemas/r
 Later DEV-8 comments supersede the original fixed-asset and provider-shortened expiry proposal. The local shared runtime uses provider, wallet, chain and settlement registries; Abroad is the first adapter and others remain legacy until their own migration gates pass. The SDK schema has now been regenerated from the matching local backend. The additive action API binds `{ actionId, transactionVersion, signedPayload?, fields? }`; empty-body complete and Stellar signature endpoints remain compatible. Shared web/native action interpretation shows exact totals and requires explicit signing.
 
 Legacy keys are persisted exactly or drained on the legacy path, including orders created before a transaction exists. Bridge resource keys remain separate. Each continuation step keeps its own saved operation/key; key expiry and lost responses require reconciliation. Characterization tests, worker/evidence support and tested ownership cutover precede enrollment. Anclap external authentication cannot be renewed silently; unavailable unattended observation requires documented recovery/escalation or continued legacy ownership. Rollback never returns enrolled rows to legacy writers.
+
+The production DEV-7 enum decision closes ramp chain identifiers to `RampChain`
+(`STELLAR`, `POLYGON`, `SOLANA`), independently of `WalletNetwork`. The SDK's
+quote filters, routes, terms, transactions and signing registrations preserve
+that catalog. Network stays separate, CAIP-2 identifiers are derived when
+needed, and exact amount strings are unchanged. This supersedes earlier
+open-chain proposals; adding a chain requires a database enum migration and a
+matching SDK contract update.

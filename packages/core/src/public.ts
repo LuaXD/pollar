@@ -44,6 +44,7 @@ export type {
 } from './wallets';
 export type * from './types';
 export { AUTH_ERROR_CODES, PollarNetworkError, isPollarNetworkError, PollarApiError, isPollarApiError } from './types';
+export { RampChain } from './types';
 export { WALLET_NOT_READY_CODE, isWalletNotReady } from './types';
 export { PollarApiClient } from './api/client';
 export type { paths as pollarPaths } from './api/schema';

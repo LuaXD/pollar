@@ -12,7 +12,7 @@ const snapshot = {
     fiatCurrency: 'PEN',
     cryptoAmount: '1.123456789012',
     assetCode: 'NATIVE',
-    assetChain: 'FUTURE_CHAIN',
+    assetChain: 'POLYGON',
     assetIssuer: null,
     feeAmount: '0',
     feeCurrency: 'PEN',
@@ -21,7 +21,7 @@ const snapshot = {
     kind: 'sign_transaction',
     actionId: 'fixture-action',
     purpose: 'withdrawal_payment',
-    chain: 'FUTURE_CHAIN',
+    chain: 'POLYGON',
     network: 'mainnet',
     challengeRef: 'fixture-challenge',
     payload: { encoding: 'fixture-json', value: 'fixture-unsigned' },
@@ -92,7 +92,7 @@ const snapshot = {
   await client.getRampTransaction(snapshot.txId);
   assert.equal(signs, 0);
   await assert.rejects(client.signRampAction(snapshot.txId, snapshot), /Register a ramp signing handler/);
-  client.registerRampSigningHandler('FUTURE_CHAIN', 'fixture-json', async (action) => {
+  client.registerRampSigningHandler('POLYGON', 'fixture-json', async (action) => {
     assert.equal(action.payload.value, 'fixture-unsigned');
     signs++;
     return 'fixture-signed';
@@ -122,7 +122,7 @@ const snapshot = {
   await endpoints.continueRamp(api, snapshot.txId, { actionId: 'fixture-action', transactionVersion: 2 });
   assert.equal(calls[2][0], '/ramps/transaction/{txId}/continue');
   console.log(
-    'Ramp SDK: future-chain signing, explicit continuation, stale versions, verification and read-only restoration passed.',
+    'Ramp SDK: Polygon signing, explicit continuation, stale versions, verification and read-only restoration passed.',
   );
 })().catch((error) => {
   console.error(error);

@@ -6,7 +6,8 @@
 > `@pollar/react-native` and the four client adapter packages. This minor
 > release includes the 0.11.4 changes below.
 
-- Ramps discover registered chains, assets and payment routes; preserve exact
+- Ramps discover registered assets and payment routes within the closed
+  `RampChain` catalog (`STELLAR`, `POLYGON`, `SOLANA`); preserve exact
   quote amounts; and resume saved, versioned workflows without signing on restore.
 - `getRampRoutes`, `continueRamp`, `registerRampSigningHandler` and
   `signRampAction` support explicit workflow actions. Built-in Stellar signing

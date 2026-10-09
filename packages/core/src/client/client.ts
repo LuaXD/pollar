@@ -1,6 +1,6 @@
 import { assertRampStellarAccount } from '../ramps/stellar-account';
 import { RampSigningRegistry, type RampSigningHandler, type RampSnapshot } from '../ramps/workflow';
-import type { RampContinuationBody } from '../types';
+import type { RampChain, RampContinuationBody } from '../types';
 import { createApiClient, fetchWithTimeout, PollarApiClient } from '../api/client';
 import { claimDistributionRule, listDistributionRules } from '../api/endpoints/distribution';
 import { getSwapConfig, getSwapTokens, quoteSwap } from '../api/endpoints/swap';
@@ -3711,7 +3711,7 @@ export class PollarClient {
     return continueRamp(this._api, txId, body);
   }
   /** Register a signer for a chain and payload encoding; returns its cleanup function. */
-  registerRampSigningHandler(chain: string, encoding: string, handler: RampSigningHandler): () => void {
+  registerRampSigningHandler(chain: RampChain, encoding: string, handler: RampSigningHandler): () => void {
     return this._rampSigners.register(chain, encoding, handler);
   }
   /** Explicit user action only. Reading/restoring a workflow never invokes this. */
