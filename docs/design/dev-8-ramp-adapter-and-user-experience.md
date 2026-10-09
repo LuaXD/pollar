@@ -231,6 +231,8 @@ These declarations match the local DEV-8/DEV-10 framework. This is not a publish
 ```ts
 // Separate from WalletNetwork. Adding a chain requires a backend enum migration.
 type RampChain = 'STELLAR' | 'POLYGON' | 'SOLANA';
+// WalletNetwork remains an independent database enum.
+type WalletNetwork = 'STELLAR' | 'POLYGON' | 'SOLANA';
 
 type LifecycleTerms = {
   fiatCurrency: string;
@@ -259,7 +261,7 @@ export type UserContext = {
   sdkUserId: string;
   providerId: string;
   configurationId: string;
-  wallet: { address: string; chain: RampChain; network: 'testnet' | 'mainnet'; custody: 'custodial' | 'external' };
+  wallet: { address: string; chain: WalletNetwork; network: 'testnet' | 'mainnet'; custody: 'custodial' | 'external' };
 };
 export type RequiredField = {
   key: string;
