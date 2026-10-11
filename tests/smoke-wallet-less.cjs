@@ -123,6 +123,30 @@ const ADDRESS = 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF';
   check('  with the backend code', thrown?.code === 'SDK_WALLET_PROVISIONING_DISABLED', thrown);
 
   client.destroy();
+
+  console.log('\n── 5. A Solana login has a wallet but no Stellar one ───────────');
+  const SOLANA = 'BEiJauJ3W1vytWHmfTdtRgR9wYZmV3Xo2BvhNHCgTYmy';
+  const solStorage = sdk.createMemoryAdapter();
+  await solStorage.set(
+    sessionKey,
+    JSON.stringify({
+      clientSessionId: 'cs-sol',
+      userId: 'u',
+      status: 'CONSUMED',
+      token: { accessToken: 'AT', refreshToken: 'RT', expiresAt: Math.floor(Date.now() / 1000) + 600 },
+      user: { ready: true },
+      wallet: { type: 'external', provider: 'wallet', address: null, chain: 'STELLAR' },
+      wallets: [{ type: 'external', address: SOLANA, chain: 'SOLANA' }],
+    }),
+  );
+  const sol = new sdk.PollarClient({ apiKey, storage: solStorage, baseUrl: 'https://x.test' });
+  await sol.ready();
+  check('the session restores', sol.getAuthState().step === 'authenticated');
+  check('getWallet() (Stellar) is null', sol.getWallet() === null);
+  check('hasWallet() is true', sol.hasWallet() === true);
+  check('getWallets() has the Solana wallet', sol.getWallets()[0]?.address === SOLANA, sol.getWallets());
+  sol.destroy();
+
   console.log(`\n${pass} pass, ${fail} fail`);
   process.exit(fail ? 1 : 0);
 })().catch((err) => {

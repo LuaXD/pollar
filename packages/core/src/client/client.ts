@@ -2693,11 +2693,12 @@ export class PollarClient {
   }
 
   /**
-   * Whether the signed-in user has a wallet. False for an app that creates
-   * wallets on demand (or never) until {@link createWallet} runs.
+   * Whether the signed-in user has a wallet on any chain. False for an app that
+   * creates wallets on demand (or never) until {@link createWallet} runs. Not the
+   * same as `getWallet() !== null`: a Solana login has a wallet but no Stellar one.
    */
   hasWallet(): boolean {
-    return this.getWallet() !== null;
+    return this.getWallets().length > 0;
   }
 
   /**

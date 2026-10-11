@@ -247,7 +247,7 @@ export function PollarProvider({ config, styles: propStyles, adapters, children 
       logout: () => pollarClient.logout(),
       // Signed in is having a session: an on-demand app's user has no address yet.
       isAuthenticated: sessionState !== null,
-      hasWallet: !!walletAddress,
+      hasWallet: pollarClient.hasWallet(),
       createWallet: () => pollarClient.createWallet(),
       buildTx: (operation, params, options) => pollarClient.buildTx(operation, params, options),
       signAndSubmitTx: (unsignedXdr?: string) => pollarClient.signAndSubmitTx(unsignedXdr),

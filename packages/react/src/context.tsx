@@ -668,7 +668,7 @@ export function PollarProvider({
       wallet: pollarClient.getWallet(),
       wallets: pollarClient.getWallets(),
       isAuthenticated: hasSession,
-      hasWallet: !!walletAddress,
+      hasWallet: pollarClient.hasWallet(),
       createWallet: () => pollarClient.createWallet(),
       verified,
       // client
