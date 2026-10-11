@@ -4196,7 +4196,8 @@ export class PollarClient {
   /**
    * The full card number and CVC, decrypted on this device with a one-shot key
    * the server never sees. Show them and drop them: never store or log the
-   * result. Web only (needs WebCrypto).
+   * result. On WebCrypto where the runtime has it, in plain JavaScript on React
+   * Native.
    */
   async revealCardSecrets(cardId: string, params: CardProviderParams = {}): Promise<CardSecrets> {
     const { publicKeyPem } = await getCardSecretsPublicKey(this._api, params.cardProviderId);

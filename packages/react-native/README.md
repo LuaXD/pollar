@@ -10,8 +10,7 @@ authentication and transactions in Stellar mobile applications. Built on top of
 npm install @pollar/react-native @pollar/core
 ```
 
-**Peer dependencies:** `@pollar/core ^0.11.4-rc.1`, `react >= 18`, `react-native >= 0.72`. The release candidate is on
-the `next` tag: `npm install @pollar/react-native@next @pollar/core@next`.
+**Peer dependencies:** `@pollar/core ^0.11.4`, `react >= 18`, `react-native >= 0.72`.
 
 Add the runtime polyfills and one storage backend:
 
@@ -119,7 +118,9 @@ history and wallet balance modals. You do not render the modals yourself.
 ```ts
 const {
   // session
-  isAuthenticated, // boolean
+  isAuthenticated, // boolean, follows the session: true for a signed-in user without a wallet
+  hasWallet, // boolean, a wallet on any chain
+  createWallet, // () => Promise<WalletInfo>, for an app that creates wallets on demand
   walletAddress, // string, '' when logged out
   walletType, // WalletId | null, the external wallet id when one is connected
   login, // (options: PollarLoginOptions) => void
@@ -149,6 +150,7 @@ const {
   openRampWidget,
   openTxHistoryModal,
   openWalletBalanceModal,
+  openCardModal, // the card flow, for an app with a card provider
 } = usePollar();
 ```
 
@@ -175,6 +177,8 @@ the same ids through `walletAdapters` in the client config.
   want to mount one yourself.
 - `<RequirementFormModal>`, `<RegistryCheckModal>`, `<ProviderRegistrationModal>`: the requirement steps a ramp route
   can ask for (see below).
+- `<CardModal>`: cards from the app's card providers - the provider's steps, sign-up, issuing, the card with its
+  balance and movements, funding from the wallet and the number, decrypted on the device without WebCrypto.
 - `LoginModalTemplate`, `TransactionModalTemplate`, `KycModalTemplate`, `RampWidgetTemplate`,
   `TxHistoryModalTemplate`, `WalletBalanceModalTemplate`, `WalletButtonTemplate`: the presentational layer of each
   component, to build your own container around it.

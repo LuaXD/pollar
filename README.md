@@ -9,7 +9,7 @@ This repository is managed with [Turborepo](https://turbo.build/repo) and contai
 
 ## Packages
 
-> **0.11.4** (candidate `0.11.4-rc.1` on the `next` tag) needs no change in an app that uses the
+> **0.11.4** needs no change in an app that uses the
 > built-in components. **KYC by ramp corridor**: a ramp quote reports the first requirement step a
 > route still needs (`requirementsRequired`), and `@pollar/core` and `@pollar/react` complete every
 > step type - KYC, forms, SEGIP registry checks and provider registration - from `<RampWidget>` or
@@ -17,6 +17,12 @@ This repository is managed with [Turborepo](https://turbo.build/repo) and contai
 > balance modals follow the **new design**, keeping the network picker in a multichain app. Apps that
 > mount those templates or call `pollKycStatus()` should
 > read [UPGRADE.md](./UPGRADE.md). From this release the SDK is licensed under **Apache-2.0**.
+>
+> **Cards**: an app that enables a card provider offers its users a card funded from their wallet,
+> through `<CardModal>` (`openCardModal()`, web and React Native) or the card methods on
+> `PollarClient`; the card number is decrypted on the device (`revealCardSecrets()`). **Wallets on
+> demand**: for an app that creates wallets on demand or never, a session without a wallet is signed
+> in, `hasWallet()` says whether there is one and `createWallet()` creates it.
 >
 > **Wallet provisioning.** The platform now creates an end-user's Stellar
 > account **in the background** instead of inside `POST /auth/login`, so a login returns before
@@ -28,9 +34,12 @@ This repository is managed with [Turborepo](https://turbo.build/repo) and contai
 > an opaque network error. Also in core: a DPoP proof the server rejects over **clock skew** is
 > re-signed rather than clearing the session (it was logging people out), and every request carries
 > **`x-pollar-sdk`** so a stale SDK is visible from the dashboard - this one needs an sdk-api that
-> allows the header in CORS, which the hosted one does. `@pollar/react@0.11.4` requires
-> `@pollar/core@^0.11.4`; if you pin exact versions, keep both on the same version. The four
-> adapters stay at `0.11.2` - their `^0.11.2` range already resolves 0.11.4.
+> allows the header in CORS, which the hosted one does. `@pollar/react@0.11.4` and
+> `@pollar/react-native@0.11.4` require `@pollar/core@^0.11.4`; if you pin exact versions, keep
+> them on the same version. `@pollar/react-native` joins the SDK's version line (from `0.1.1`). The
+> adapters are not part of this release: the published stellar-wallets-kit (`0.11.2`) and privy
+> (`0.11.1`) adapters accept core 0.11.4, the accesly one (`0.10.1`, `^0.10.1`) does not - see
+> [UPGRADE.md](./UPGRADE.md).
 >
 > Earlier: **0.11.3** was session resilience in `@pollar/core`: a session
 > **survives reloads when the DPoP keypair fails to persist** (no more thumbprint-mismatch
@@ -67,7 +76,7 @@ This repository is managed with [Turborepo](https://turbo.build/repo) and contai
 
 ### [`@pollar/core`](./packages/core)
 
-**Version:** `0.11.4-rc.1` (`next` tag) &nbsp;|&nbsp; **Registry:** [npm](https://www.npmjs.com/package/@pollar/core)
+**Version:** `0.11.4` &nbsp;|&nbsp; **Registry:** [npm](https://www.npmjs.com/package/@pollar/core)
 
 Framework-agnostic TypeScript SDK. Provides the `PollarClient` class and all lower-level utilities needed to integrate
 Pollar authentication and multichain (Stellar + Solana) transactions into any JavaScript environment.
@@ -99,6 +108,10 @@ Pollar authentication and multichain (Stellar + Solana) transactions into any Ja
 - **SEP-24 on/off-ramps** - anchor deposit/withdraw interactive flow via the `ramps` endpoints
 - **Account creation** - `createAccount()` puts an external wallet's classic account on-chain via a sponsored
   `createAccount`; the wallet surfaces `existsOnStellar` + `fundingMode`
+- **Wallets on demand** - for an app that creates wallets on demand or never, a session without a wallet is signed in;
+  `hasWallet()` says whether there is one on any chain and `createWallet()` creates it
+- **Cards** - `getCardProviders()`, `issueCard()`, `fundCard()`, `getCardBalance()` and the rest of the card methods;
+  `revealCardSecrets()` decrypts the card number on the device, on WebCrypto or in plain JavaScript on React Native
 - **Sponsored trustlines** - `setTrustline` lets the app config decide who pays (server-side): embedded wallets hit
   the sponsored/self-pay trustline endpoint, external wallets co-sign whichever XDR the server returns. Pass
   `skipSponsorship` to force the user's own wallet to pay via `change_trust`
@@ -146,7 +159,7 @@ const client = new PollarClient({ apiKey: 'pk_...', storage });
 
 ### [`@pollar/react`](./packages/react)
 
-**Version:** `0.11.4-rc.1` (`next` tag) &nbsp;|&nbsp; **Registry:** [npm](https://www.npmjs.com/package/@pollar/react)
+**Version:** `0.11.4` &nbsp;|&nbsp; **Registry:** [npm](https://www.npmjs.com/package/@pollar/react)
 
 React bindings built on top of `@pollar/core`. Provides a context provider, hook, and pre-built UI components for
 drop-in authentication in React applications.
@@ -178,6 +191,8 @@ drop-in authentication in React applications.
 - `<EnabledAssetsModal>` — the app's dashboard-enabled assets for the network picked in the header, with per-asset
   trustline state; establish/remove trustlines (Stellar only — other chains are informational)
 - `<DistributionRulesModal>` — manage the wallet's distribution rules
+- `<CardModal>` - cards from the app's card providers: the provider's steps, sign-up, issuing, the card with its balance
+  and movements, funding from the wallet and revealing the number; `openCardModal()` from `usePollar()`
 - `<ChainSelect>` — the shared network picker, exported alongside `chainsOf()` / `addressForChain()` / `resolveChain()`
   so you can drive the templates that take `chains` / `selectedChain` / `onSelectChain` yourself
 - `useChains()` — the recommended hook for the app's configured chain order and primary address (returns
@@ -197,7 +212,7 @@ npm install @pollar/react @pollar/core
 
 ### [`@pollar/react-native`](./packages/react-native)
 
-**Version:** `0.11.4-rc.1` (`next` tag) &nbsp;|&nbsp; **Registry:** [npm](https://www.npmjs.com/package/@pollar/react-native)
+**Version:** `0.11.4` &nbsp;|&nbsp; **Registry:** [npm](https://www.npmjs.com/package/@pollar/react-native)
 
 React Native bindings built on top of `@pollar/core`: the same provider-and-hook model as `@pollar/react`, with
 components styled through `StyleSheet`.
@@ -214,7 +229,8 @@ components styled through `StyleSheet`.
 - Template components for every modal, for fully custom UIs
 - Storage (Keychain / SecureStore), OAuth opener and polyfills are configured through `@pollar/core`; see the package
   README
-- Peer dependencies on `@pollar/core ^0.11.4-rc.1`, React >= 18 and React Native >= 0.72; versioned with `@pollar/core`
+- `<CardModal>` - the same card flow as the web one; the card number is decrypted on the device without WebCrypto
+- Peer dependencies on `@pollar/core ^0.11.4`, React >= 18 and React Native >= 0.72; versioned with `@pollar/core`
   and `@pollar/react` from 0.11.4
 
 ```bash
