@@ -1187,8 +1187,8 @@ export type SwapQuoteParams = {
 };
 
 // --- Cards types ----------------------------------------------------------------
-// Written by hand: sdk-api's OpenAPI document carries no response schemas for
-// `/cards/*`. Shapes mirror apps/sdk-api `cards.service.ts`.
+// The public names for the `/cards/*` contents. `api/endpoints/cards.ts` returns
+// the generated response types as these, so the compiler flags any drift.
 
 export type CardKycStatus =
   | 'NOT_STARTED'

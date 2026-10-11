@@ -6980,7 +6980,44 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_PROVIDERS";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            providers: {
+                                id: string;
+                                name: string;
+                                cardLabel: string;
+                                adapter: string;
+                                countries: string[];
+                                cardTypes: ("VIRTUAL" | "PHYSICAL")[];
+                                fundingAssets: string[];
+                                termsUrl: string | null;
+                                supports: {
+                                    freeze: boolean;
+                                    terminate: boolean;
+                                    physical: boolean;
+                                    revealSecrets: boolean;
+                                };
+                                requirement: {
+                                    position: number;
+                                    completed: number;
+                                    total: number;
+                                    /** @enum {string} */
+                                    type: "KYC" | "FORM" | "REGISTRY_CHECK" | "PROVIDER_REGISTRATION";
+                                    optionId: string;
+                                    /** @enum {string} */
+                                    status: "none" | "pending" | "rejected" | "expired";
+                                    reviewReason?: string;
+                                } | null;
+                                available: boolean;
+                            }[];
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -7061,7 +7098,9 @@ export interface operations {
     };
     getCardsRequirements: {
         parameters: {
-            query?: never;
+            query?: {
+                cardProviderId?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7073,7 +7112,37 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_REQUIREMENTS";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            cardProviderId: string;
+                            steps: {
+                                position: number;
+                                /** @enum {string} */
+                                type: "KYC" | "FORM" | "REGISTRY_CHECK" | "PROVIDER_REGISTRATION";
+                                optionIds: string[];
+                                completed: boolean;
+                            }[];
+                            next: {
+                                position: number;
+                                completed: number;
+                                total: number;
+                                /** @enum {string} */
+                                type: "KYC" | "FORM" | "REGISTRY_CHECK" | "PROVIDER_REGISTRATION";
+                                optionId: string;
+                                /** @enum {string} */
+                                status: "none" | "pending" | "rejected" | "expired";
+                                reviewReason?: string;
+                            } | null;
+                            completed: number;
+                            total: number;
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -7154,7 +7223,9 @@ export interface operations {
     };
     getCardsHolder: {
         parameters: {
-            query?: never;
+            query?: {
+                cardProviderId?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7166,7 +7237,26 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_HOLDER";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            holder: {
+                                id: string;
+                                cardProviderId: string;
+                                /** @enum {string} */
+                                kycStatus: "NOT_STARTED" | "PENDING" | "NEEDS_ACTION" | "IN_REVIEW" | "APPROVED" | "DENIED" | "LOCKED" | "CANCELED";
+                                kycReason: string | null;
+                                verificationLink: string | null;
+                                termsAcceptedAt: string | null;
+                                createdAt: string;
+                            } | null;
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -7252,14 +7342,43 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    cardProviderId?: string;
+                    firstName?: string;
+                    lastName?: string;
+                    /** Format: email */
+                    email?: string;
+                };
+            };
+        };
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_HOLDER";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            holder: {
+                                id: string;
+                                cardProviderId: string;
+                                /** @enum {string} */
+                                kycStatus: "NOT_STARTED" | "PENDING" | "NEEDS_ACTION" | "IN_REVIEW" | "APPROVED" | "DENIED" | "LOCKED" | "CANCELED";
+                                kycReason: string | null;
+                                verificationLink: string | null;
+                                termsAcceptedAt: string | null;
+                                createdAt: string;
+                            };
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -7345,14 +7464,65 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    cardProviderId?: string;
+                    termsAccepted: boolean;
+                    kyc: {
+                        firstName: string;
+                        lastName: string;
+                        birthDate: string;
+                        nationalId: string;
+                        countryOfIssue: string;
+                        /** Format: email */
+                        email?: string;
+                        phoneCountryCode: string;
+                        phoneNumber: string;
+                        occupation: string;
+                        /** @enum {string} */
+                        annualSalary: "0-1000" | "1000-5000" | "5000-10000" | "10000+";
+                        accountPurpose: string;
+                        /** @enum {string} */
+                        expectedMonthlyVolume: "0-1000" | "1000-5000" | "5000-10000" | "10000+";
+                        address: {
+                            line1: string;
+                            line2?: string;
+                            city: string;
+                            region: string;
+                            postalCode: string;
+                            countryCode: string;
+                        };
+                    };
+                };
+            };
+        };
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_KYC_SUBMITTED";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            holder: {
+                                id: string;
+                                cardProviderId: string;
+                                /** @enum {string} */
+                                kycStatus: "NOT_STARTED" | "PENDING" | "NEEDS_ACTION" | "IN_REVIEW" | "APPROVED" | "DENIED" | "LOCKED" | "CANCELED";
+                                kycReason: string | null;
+                                verificationLink: string | null;
+                                termsAcceptedAt: string | null;
+                                createdAt: string;
+                            };
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -7448,7 +7618,9 @@ export interface operations {
     };
     getCardsKycOccupations: {
         parameters: {
-            query?: never;
+            query?: {
+                cardProviderId?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7460,7 +7632,20 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_OCCUPATIONS";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            occupations: {
+                                code: string;
+                                label: string;
+                            }[];
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -7541,7 +7726,9 @@ export interface operations {
     };
     getCards: {
         parameters: {
-            query?: never;
+            query?: {
+                cardProviderId?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7553,7 +7740,29 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_LIST";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            cards: {
+                                id: string;
+                                /** @enum {string} */
+                                type: "VIRTUAL" | "PHYSICAL";
+                                /** @enum {string} */
+                                status: "PENDING" | "ACTIVE" | "FROZEN" | "TERMINATED";
+                                last4: string | null;
+                                expMonth: string | null;
+                                expYear: string | null;
+                                nickname: string | null;
+                                currency: string;
+                                createdAt: string;
+                            }[];
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -7639,14 +7848,47 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    cardProviderId?: string;
+                    nickname?: string;
+                    limit?: {
+                        amount: number;
+                        frequency: string;
+                    };
+                };
+            };
+        };
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_ISSUED";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            card: {
+                                id: string;
+                                /** @enum {string} */
+                                type: "VIRTUAL" | "PHYSICAL";
+                                /** @enum {string} */
+                                status: "PENDING" | "ACTIVE" | "FROZEN" | "TERMINATED";
+                                last4: string | null;
+                                expMonth: string | null;
+                                expYear: string | null;
+                                nickname: string | null;
+                                currency: string;
+                                createdAt: string;
+                            };
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -7742,7 +7984,9 @@ export interface operations {
     };
     getCardsBalance: {
         parameters: {
-            query?: never;
+            query?: {
+                cardProviderId?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7754,7 +7998,23 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_BALANCE";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            balance: {
+                                creditLimitCents: number | null;
+                                spendingPowerCents: number | null;
+                                balanceDueCents: number | null;
+                                ledgerBalance: string | null;
+                                syncedAt: string;
+                            } | null;
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -7835,7 +8095,12 @@ export interface operations {
     };
     getCardsTransactions: {
         parameters: {
-            query?: never;
+            query?: {
+                cardProviderId?: string;
+                cardId?: string;
+                limit?: number;
+                offset?: number;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7847,7 +8112,37 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_TRANSACTIONS";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            transactions: {
+                                id: string;
+                                cardId: string | null;
+                                type: string;
+                                direction: ("debit" | "credit") | null;
+                                status: string;
+                                amount: string;
+                                fee: string | null;
+                                currency: string;
+                                network: string | null;
+                                txHash: string | null;
+                                purchaseId: string | null;
+                                purchase: {
+                                    [key: string]: unknown;
+                                } | null;
+                                merchantName: string | null;
+                                occurredAt: string;
+                            }[];
+                            total: number;
+                            limit: number;
+                            offset: number;
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -7928,7 +8223,9 @@ export interface operations {
     };
     getCardsFundingDepositAddresses: {
         parameters: {
-            query?: never;
+            query?: {
+                cardProviderId?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7940,7 +8237,25 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_DEPOSIT_ADDRESSES";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            depositAddresses: {
+                                network: string;
+                                chainId: number;
+                                address: string;
+                                tokens: {
+                                    currency: string | null;
+                                    tokenAddress: string;
+                                }[];
+                            }[];
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -8021,7 +8336,9 @@ export interface operations {
     };
     getCardsFunding: {
         parameters: {
-            query?: never;
+            query?: {
+                cardProviderId?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -8033,7 +8350,32 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_FUNDINGS";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            fundings: {
+                                id: string;
+                                /** @enum {string} */
+                                status: "CREATED" | "BURNED" | "ATTESTED" | "MINTED" | "CREDITED" | "FAILED";
+                                amount: string;
+                                asset: string;
+                                depositAddress: string;
+                                chainId: number;
+                                stellarTxHash: string | null;
+                                burnTxHash: string | null;
+                                polygonMintTxHash: string | null;
+                                providerTxId: string | null;
+                                error: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                            }[];
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -8119,14 +8461,49 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    cardProviderId?: string;
+                    amount: string;
+                };
+            };
+        };
         responses: {
-            /** @description OK */
-            200: {
+            /** @description Created */
+            201: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_FUNDING_CREATED";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            funding: {
+                                id: string;
+                                /** @enum {string} */
+                                status: "CREATED" | "BURNED" | "ATTESTED" | "MINTED" | "CREDITED" | "FAILED";
+                                amount: string;
+                                asset: string;
+                                depositAddress: string;
+                                chainId: number;
+                                stellarTxHash: string | null;
+                                burnTxHash: string | null;
+                                polygonMintTxHash: string | null;
+                                providerTxId: string | null;
+                                error: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                            };
+                            pendingSignature?: {
+                                unsignedXdr: string;
+                            };
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -8221,7 +8598,32 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_FUNDING_STATUS";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            funding: {
+                                id: string;
+                                /** @enum {string} */
+                                status: "CREATED" | "BURNED" | "ATTESTED" | "MINTED" | "CREDITED" | "FAILED";
+                                amount: string;
+                                asset: string;
+                                depositAddress: string;
+                                chainId: number;
+                                stellarTxHash: string | null;
+                                burnTxHash: string | null;
+                                polygonMintTxHash: string | null;
+                                providerTxId: string | null;
+                                error: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                            };
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -8309,14 +8711,45 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    signedXdr: string;
+                };
+            };
+        };
         responses: {
             /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_FUNDING_SIGNATURE_ACCEPTED";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            funding: {
+                                id: string;
+                                /** @enum {string} */
+                                status: "CREATED" | "BURNED" | "ATTESTED" | "MINTED" | "CREDITED" | "FAILED";
+                                amount: string;
+                                asset: string;
+                                depositAddress: string;
+                                chainId: number;
+                                stellarTxHash: string | null;
+                                burnTxHash: string | null;
+                                polygonMintTxHash: string | null;
+                                providerTxId: string | null;
+                                error: string | null;
+                                createdAt: string;
+                                updatedAt: string;
+                            };
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -8412,7 +8845,9 @@ export interface operations {
     };
     getCardsSecretsPublicKey: {
         parameters: {
-            query?: never;
+            query?: {
+                cardProviderId?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -8424,7 +8859,17 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_SECRETS_PUBLIC_KEY";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            publicKeyPem: string;
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {
@@ -8512,14 +8957,41 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": {
+                    cardProviderId?: string;
+                    sessionId: string;
+                };
+            };
+        };
         responses: {
             /** @description OK */
             200: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": {
+                        /** @constant */
+                        code: "SDK_CARDS_SECRETS";
+                        /** @constant */
+                        success: true;
+                        content: {
+                            last4: string | null;
+                            expMonth: string | null;
+                            expYear: string | null;
+                            encryptedPan: {
+                                iv: string;
+                                data: string;
+                            };
+                            encryptedCvc: {
+                                iv: string;
+                                data: string;
+                            };
+                        };
+                    };
+                };
             };
             /** @description Validation error */
             400: {

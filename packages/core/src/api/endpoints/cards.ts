@@ -24,16 +24,6 @@ export interface EncryptedCardSecrets {
   encryptedCvc: { iv: string; data: string };
 }
 
-// sdk-api publishes `/cards/*` in its OpenAPI document without query, body or
-// response schemas, so the generated `paths` give those routes no parameters and
-// the typed client cannot call them. This loose view is the same instance: DPoP,
-// auth refresh and retries all still apply. The card registration routes under
-// `/requirements` are described, and use the typed client.
-interface LooseApi {
-  GET(path: string, init?: { params?: { query?: Record<string, unknown> } }): Promise<{ data?: unknown; error?: unknown }>;
-  POST(path: string, init?: { body?: unknown; headers?: Record<string, string> }): Promise<{ data?: unknown; error?: unknown }>;
-}
-
 /** Registering runs the provider's sign-up and KYC in one call; longer than the default client timeout. */
 const REGISTRATION_TIMEOUT_MS = 30_000;
 
@@ -43,29 +33,23 @@ function cardsApiError(error: unknown, fallback: string): PollarApiError {
   return new PollarApiError(code, body);
 }
 
-function content<T>(res: { data?: unknown; error?: unknown }, fallback: string): T {
-  const data = res.data as { content?: T } | undefined;
-  if (res.error || data?.content === undefined) throw cardsApiError(res.error, fallback);
-  return data.content;
+function content<T>(res: { data?: { content?: T }; error?: unknown }, fallback: string): T {
+  if (res.error || res.data?.content === undefined) throw cardsApiError(res.error, fallback);
+  return res.data.content;
 }
 
-function query(params: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(params)) if (v !== undefined) out[k] = v;
-  return out;
-}
-
-const loose = (api: PollarApiClient) => api as unknown as LooseApi;
+/** `cardProviderId` may be omitted while the app has a single card provider. */
+const byProvider = (cardProviderId?: string) => (cardProviderId ? { cardProviderId } : {});
 
 /** GET /cards/providers */
 export async function getCardProviders(api: PollarApiClient): Promise<{ providers: CardProvider[] }> {
-  return content(await loose(api).GET('/cards/providers'), 'Failed to load card providers');
+  return content(await api.GET('/cards/providers'), 'Failed to load card providers');
 }
 
 /** GET /cards/holder */
 export async function getCardHolder(api: PollarApiClient, cardProviderId?: string): Promise<{ holder: CardHolder | null }> {
   return content(
-    await loose(api).GET('/cards/holder', { params: { query: query({ cardProviderId }) } }),
+    await api.GET('/cards/holder', { params: { query: byProvider(cardProviderId) } }),
     'Failed to load card holder',
   );
 }
@@ -75,7 +59,7 @@ export async function createCardHolder(
   api: PollarApiClient,
   body: { cardProviderId?: string; firstName?: string; lastName?: string; email?: string },
 ): Promise<{ holder: CardHolder }> {
-  return content(await loose(api).POST('/cards/holder', { body }), 'Failed to register card holder');
+  return content(await api.POST('/cards/holder', { body }), 'Failed to register card holder');
 }
 
 /** POST /cards/holder/kyc */
@@ -83,7 +67,7 @@ export async function submitCardKyc(
   api: PollarApiClient,
   body: { cardProviderId?: string; termsAccepted: boolean; kyc: CardKycInput },
 ): Promise<{ holder: CardHolder }> {
-  return content(await loose(api).POST('/cards/holder/kyc', { body }), 'Failed to submit card KYC');
+  return content(await api.POST('/cards/holder/kyc', { body }), 'Failed to submit card KYC');
 }
 
 /** GET /cards/kyc/occupations */
@@ -92,14 +76,14 @@ export async function getCardOccupations(
   cardProviderId?: string,
 ): Promise<{ occupations: CardOccupation[] }> {
   return content(
-    await loose(api).GET('/cards/kyc/occupations', { params: { query: query({ cardProviderId }) } }),
+    await api.GET('/cards/kyc/occupations', { params: { query: byProvider(cardProviderId) } }),
     'Failed to load occupations',
   );
 }
 
 /** GET /cards */
 export async function getCards(api: PollarApiClient, cardProviderId?: string): Promise<{ cards: CardInfo[] }> {
-  return content(await loose(api).GET('/cards', { params: { query: query({ cardProviderId }) } }), 'Failed to load cards');
+  return content(await api.GET('/cards', { params: { query: byProvider(cardProviderId) } }), 'Failed to load cards');
 }
 
 /** POST /cards */
@@ -107,13 +91,13 @@ export async function issueCard(
   api: PollarApiClient,
   body: { cardProviderId?: string; nickname?: string; limit?: { amount: number; frequency: string } },
 ): Promise<{ card: CardInfo }> {
-  return content(await loose(api).POST('/cards', { body }), 'Failed to issue card');
+  return content(await api.POST('/cards', { body }), 'Failed to issue card');
 }
 
 /** GET /cards/balance */
 export async function getCardBalance(api: PollarApiClient, cardProviderId?: string): Promise<{ balance: CardBalance | null }> {
   return content(
-    await loose(api).GET('/cards/balance', { params: { query: query({ cardProviderId }) } }),
+    await api.GET('/cards/balance', { params: { query: byProvider(cardProviderId) } }),
     'Failed to load card balance',
   );
 }
@@ -123,10 +107,7 @@ export async function getCardTransactions(
   api: PollarApiClient,
   params: { cardProviderId?: string; cardId?: string; limit?: number; offset?: number },
 ): Promise<CardTransactionsPage> {
-  return content(
-    await loose(api).GET('/cards/transactions', { params: { query: query(params) } }),
-    'Failed to load card transactions',
-  );
+  return content(await api.GET('/cards/transactions', { params: { query: params } }), 'Failed to load card transactions');
 }
 
 /** GET /cards/funding/deposit-addresses */
@@ -135,7 +116,7 @@ export async function getCardDepositAddresses(
   cardProviderId?: string,
 ): Promise<{ depositAddresses: CardDepositAddress[] }> {
   return content(
-    await loose(api).GET('/cards/funding/deposit-addresses', { params: { query: query({ cardProviderId }) } }),
+    await api.GET('/cards/funding/deposit-addresses', { params: { query: byProvider(cardProviderId) } }),
     'Failed to load deposit addresses',
   );
 }
@@ -146,7 +127,7 @@ export async function getCardSecretsPublicKey(
   cardProviderId?: string,
 ): Promise<{ publicKeyPem: string }> {
   return content(
-    await loose(api).GET('/cards/secrets/public-key', { params: { query: query({ cardProviderId }) } }),
+    await api.GET('/cards/secrets/public-key', { params: { query: byProvider(cardProviderId) } }),
     'Failed to load card secrets key',
   );
 }
@@ -158,7 +139,7 @@ export async function getCardSecrets(
   body: { cardProviderId?: string; sessionId: string },
 ): Promise<EncryptedCardSecrets> {
   return content(
-    await loose(api).POST(`/cards/${encodeURIComponent(cardId)}/secrets`, { body }),
+    await api.POST('/cards/{cardId}/secrets', { params: { path: { cardId } }, body }),
     'Failed to load card secrets',
   );
 }
@@ -168,7 +149,7 @@ export async function createCardFunding(
   api: PollarApiClient,
   body: { cardProviderId?: string; amount: string },
 ): Promise<{ funding: CardFunding; pendingSignature?: { unsignedXdr: string } }> {
-  return content(await loose(api).POST('/cards/funding', { body }), 'Failed to start card funding');
+  return content(await api.POST('/cards/funding', { body }), 'Failed to start card funding');
 }
 
 /** POST /cards/funding/:id/signature */
@@ -178,20 +159,23 @@ export async function submitCardFundingSignature(
   body: { signedXdr: string },
 ): Promise<{ funding: CardFunding }> {
   return content(
-    await loose(api).POST(`/cards/funding/${encodeURIComponent(fundingId)}/signature`, { body }),
+    await api.POST('/cards/funding/{fundingId}/signature', { params: { path: { fundingId } }, body }),
     'Failed to submit the funding payment',
   );
 }
 
 /** GET /cards/funding/:id */
 export async function getCardFunding(api: PollarApiClient, fundingId: string): Promise<{ funding: CardFunding }> {
-  return content(await loose(api).GET(`/cards/funding/${encodeURIComponent(fundingId)}`), 'Failed to load card funding');
+  return content(
+    await api.GET('/cards/funding/{fundingId}', { params: { path: { fundingId } } }),
+    'Failed to load card funding',
+  );
 }
 
 /** GET /cards/funding */
 export async function listCardFundings(api: PollarApiClient, cardProviderId?: string): Promise<{ fundings: CardFunding[] }> {
   return content(
-    await loose(api).GET('/cards/funding', { params: { query: query({ cardProviderId }) } }),
+    await api.GET('/cards/funding', { params: { query: byProvider(cardProviderId) } }),
     'Failed to load card fundings',
   );
 }
@@ -199,7 +183,7 @@ export async function listCardFundings(api: PollarApiClient, cardProviderId?: st
 /** GET /cards/requirements */
 export async function getCardRequirements(api: PollarApiClient, cardProviderId?: string): Promise<CardRequirements> {
   return content(
-    await loose(api).GET('/cards/requirements', { params: { query: query({ cardProviderId }) } }),
+    await api.GET('/cards/requirements', { params: { query: byProvider(cardProviderId) } }),
     'Failed to load the card requirements',
   );
 }
