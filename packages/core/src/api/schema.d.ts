@@ -5759,6 +5759,8 @@ export interface operations {
                                 /** @enum {string} */
                                 network: "testnet" | "mainnet";
                                 chains: ("STELLAR" | "POLYGON" | "SOLANA")[];
+                                /** @enum {string} */
+                                walletProvisioning?: "AT_LOGIN" | "ON_DEMAND" | "NONE";
                             };
                             styles: {
                                 theme?: string;

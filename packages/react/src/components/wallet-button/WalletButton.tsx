@@ -25,6 +25,7 @@ export function WalletButton() {
     tx: transaction,
     isAuthenticated,
     createWallet,
+    appConfig,
   } = usePollar();
   // The address shown (and copied) is the one on the app's FIRST configured
   // chain, not `wallet.address` - that field is the Stellar wallet by definition
@@ -188,7 +189,7 @@ export function WalletButton() {
       signedIn={isAuthenticated}
       creatingWallet={creatingWallet}
       createWalletError={createWalletError}
-      onCreateWallet={handleCreateWallet}
+      {...(appConfig.application?.walletProvisioning === 'NONE' ? {} : { onCreateWallet: handleCreateWallet })}
       notReadyReason={notReadyReason}
       creatingAccount={creating}
       onToggleOpen={() => setOpen((v) => !v)}
