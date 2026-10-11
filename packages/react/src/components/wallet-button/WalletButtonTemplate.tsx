@@ -27,6 +27,15 @@ export interface WalletButtonTemplateProps {
    */
   notReadyReason?: string | null;
   creatingAccount: boolean;
+  /**
+   * Signed in with no wallet yet (an app that creates wallets on demand). The
+   * button then offers Create wallet instead of Login. Optional, so a custom
+   * template written before this existed keeps compiling.
+   */
+  signedIn?: boolean;
+  creatingWallet?: boolean;
+  createWalletError?: string | null;
+  onCreateWallet?: () => void;
   onToggleOpen: () => void;
   onCreateAccount: () => void;
   onCopy: () => void;
@@ -73,7 +82,61 @@ export function WalletButtonTemplate({
   onDistributionRules,
   onLogout,
   onLogin,
+  signedIn,
+  creatingWallet,
+  createWalletError,
+  onCreateWallet,
 }: WalletButtonTemplateProps) {
+  if (!walletAddress && signedIn && onCreateWallet) {
+    return (
+      <div className="pollar-wallet-wrapper" ref={wrapperRef}>
+        <button className="pollar-wallet-btn" style={{ backgroundColor: accentColor }} onClick={onToggleOpen}>
+          <span className="pollar-wallet-btn-label">No wallet</span>
+          <svg
+            className={`pollar-wallet-chevron${open ? ' pollar-open' : ''}`}
+            viewBox="0 0 12 12"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="2,4 6,8 10,4" />
+          </svg>
+        </button>
+
+        {open && (
+          <div className="pollar-wallet-dropdown" style={{ backgroundColor: dropdownBg, borderColor: dropdownBorder }}>
+            {createWalletError && (
+              <>
+                <div className="pollar-wallet-dropdown-notice" style={{ color: itemColor }} role="status">
+                  {createWalletError}
+                </div>
+                <div className="pollar-wallet-dropdown-divider" />
+              </>
+            )}
+            <button
+              className="pollar-wallet-dropdown-item"
+              style={{ color: itemColor }}
+              onClick={onCreateWallet}
+              disabled={creatingWallet}
+            >
+              {creatingWallet ? 'Creating wallet…' : 'Create wallet'}
+            </button>
+            <div className="pollar-wallet-dropdown-divider" />
+            <button className="pollar-wallet-dropdown-item" style={{ color: itemColor }} onClick={onSessions}>
+              Active sessions
+            </button>
+            <div className="pollar-wallet-dropdown-divider" />
+            <button className="pollar-wallet-dropdown-item pollar-danger" onClick={onLogout}>
+              Log out
+            </button>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   if (!walletAddress) {
     return (
       <button type="button" className="pollar-wallet-login-btn" style={{ backgroundColor: accentColor }} onClick={onLogin}>

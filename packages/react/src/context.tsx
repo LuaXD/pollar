@@ -106,6 +106,14 @@ interface PollarContextValue {
 
   isAuthenticated: boolean;
   /**
+   * Whether the signed-in user has a wallet. False for an app that creates
+   * wallets on demand until {@link createWallet} runs, and always for one that
+   * creates none.
+   */
+  hasWallet: boolean;
+  /** Create the signed-in user's wallet; see `PollarClient.createWallet`. */
+  createWallet: () => Promise<WalletInfo>;
+  /**
    * `true` once the server has confirmed the session (login / refresh /
    * `/auth/session/resume`). `false` while a cold-start session is still
    * optimistic - gate sensitive actions (e.g. signing) on this.
@@ -517,7 +525,7 @@ export function PollarProvider({
             triggered = false;
             return;
           }
-          if (triggered || sessionRef.current?.wallet?.address) return;
+          if (triggered || sessionRef.current) return;
           triggered = true;
           pollarClient.login({ provider: id } as PollarLoginOptions);
         }),
@@ -640,6 +648,9 @@ export function PollarProvider({
   // dependency list moves. Without this, a wallet going from CREATING to READY
   // updates the session and re-renders nothing.
   const walletProvisioning = sessionState?.wallet?.provisioning;
+  // Signed in is having a session: a user of an app that creates wallets on
+  // demand is authenticated before they have an address.
+  const hasSession = sessionState !== null;
   const getClient = useCallback(() => pollarClient, [pollarClient]);
   // refreshBalance resolves the own wallet server-side from the session;
   // walletAddress stays in deps so the callback re-binds when the wallet changes.
@@ -656,7 +667,9 @@ export function PollarProvider({
       // session
       wallet: pollarClient.getWallet(),
       wallets: pollarClient.getWallets(),
-      isAuthenticated: !!walletAddress,
+      isAuthenticated: hasSession,
+      hasWallet: !!walletAddress,
+      createWallet: () => pollarClient.createWallet(),
       verified,
       // client
       getClient,
@@ -745,6 +758,7 @@ export function PollarProvider({
   }, [
     walletAddress,
     walletProvisioning,
+    hasSession,
     verified,
     pollarClient,
     getClient,

@@ -157,6 +157,8 @@ import {
   WalletBalanceRecord,
   WalletBalanceState,
   WalletChain,
+  PollarApiError,
+  WALLET_REQUIRED_CODE,
   WalletInfo,
   WalletProvisioning,
 } from '../types';
@@ -306,6 +308,25 @@ function warnServerSide(method: string): void {
   console.warn(
     `[PollarClient] ${method}() called server-side — browser APIs unavailable. Use PollarClient only in Client Components.`,
   );
+}
+
+/** The wire wallet (login, `/wallet/provision`) in its persisted shape. */
+function toPersistedWallet(w: PollarApplicationConfigContent['wallet']): PollarPersistedWallet {
+  return {
+    type: w.type,
+    // `provider` (the login method) was added to the wire after the generated
+    // OpenAPI types were last cut, so read it defensively until they're regen'd.
+    ...((w as { provider?: string }).provider ? { provider: (w as { provider?: string }).provider as string } : {}),
+    address: w.address ?? w.publicKey ?? null,
+    ...(w.chain !== undefined ? { chain: w.chain } : {}),
+    ...(w.existsOnStellar !== undefined ? { existsOnStellar: w.existsOnStellar } : {}),
+    ...(w.provisioning !== undefined ? { provisioning: w.provisioning } : {}),
+    ...(w.fundingMode !== undefined ? { fundingMode: w.fundingMode } : {}),
+    ...(w.createdAt !== undefined ? { createdAt: w.createdAt } : {}),
+    ...(w.linkedAt !== undefined ? { linkedAt: w.linkedAt } : {}),
+    ...(w.network !== undefined ? { network: w.network } : {}),
+    ...(w.deployTxHash !== undefined ? { deployTxHash: w.deployTxHash } : {}),
+  };
 }
 
 export class PollarClient {
@@ -2672,10 +2693,67 @@ export class PollarClient {
   }
 
   /**
+   * Whether the signed-in user has a wallet. False for an app that creates
+   * wallets on demand (or never) until {@link createWallet} runs.
+   */
+  hasWallet(): boolean {
+    return this.getWallet() !== null;
+  }
+
+  /**
+   * Create the signed-in user's wallet, for an app whose wallet creation is set
+   * to "on demand" in the dashboard. Idempotent: a user who already has one gets
+   * it back. Updates the session and notifies subscribers the way a login does.
+   *
+   * Throws {@link PollarApiError}: `SDK_WALLET_PROVISIONING_DISABLED` when the
+   * app creates no wallets, `SDK_WALLET_PROVISIONING_UNSUPPORTED` for a user who
+   * signed in with their own wallet or a passkey.
+   */
+  async createWallet(): Promise<WalletInfo> {
+    if (!this._session) throw new PollarApiError('SDK_AUTH_INVALID_TOKEN');
+    const gen = this._sessionGeneration;
+    const { data, error } = await this._api.POST('/wallet/provision');
+    const content = data?.content;
+    if (error || !content) {
+      const body = (typeof error === 'object' && error !== null ? error : {}) as Record<string, unknown>;
+      throw new PollarApiError(typeof body.code === 'string' ? body.code : 'SDK_WALLET_PROVISIONING_FAILED', body);
+    }
+    if (this._destroyed || this._sessionGeneration !== gen || !this._session) {
+      throw new PollarApiError('SDK_AUTH_INVALID_TOKEN');
+    }
+
+    this._session = {
+      ...this._session,
+      wallet: toPersistedWallet(content.wallet),
+      wallets: content.wallets.map(toPersistedWallet),
+    };
+    try {
+      await this._persistSession(gen, this._session);
+    } catch (err) {
+      this._log.error('[PollarClient] Failed to persist the created wallet', err);
+    }
+    if (this._authState.step === 'authenticated') {
+      this._setAuthState({ ...this._authState, session: this._session });
+    }
+    const provisioning = this._session.wallet.provisioning;
+    if (provisioning) this._dispatchWalletState(provisioning);
+    this._startProvisioningWatch();
+
+    const wallet = this.getWallet();
+    if (!wallet) throw new PollarApiError('SDK_WALLET_PROVISIONING_FAILED');
+    return wallet;
+  }
+
+  /**
    * Maps a persisted wallet to the public {@link WalletInfo} union. Shared by
    * `getWallet` and `getWallets` so the two can never disagree about how a
    * given custody is presented.
    */
+  /** The outcome a signing call returns for a user with no wallet yet. */
+  private _walletRequired(): { status: 'error'; code: string; details: string } {
+    return { status: 'error', code: WALLET_REQUIRED_CODE, details: 'This user has no wallet yet. Call createWallet().' };
+  }
+
   private _toWalletInfo(w: PollarPersistedWallet | undefined, opts: { includeChain: boolean }): WalletInfo | null {
     if (!w || !w.address) return null;
     // Wallet-status extras carried on every custody (see WalletInfo).
@@ -2780,7 +2858,8 @@ export class PollarClient {
     // default the backend also applies sponsorship (per the app's dashboard
     // config), returning a fee-bumped envelope the caller can broadcast directly
     // - the app pays the fee. Pass `skipSponsorship` to force the user to pay.
-    const address = this._session?.wallet?.address ?? '';
+    const address = this._session?.wallet?.address;
+    if (!address) return this._walletRequired();
     try {
       const { data, error } = await this._api.POST('/tx/sign', {
         body: { address, unsignedXdr, ...(options?.skipSponsorship && { skipSponsorship: true }) },
@@ -2877,7 +2956,8 @@ export class PollarClient {
     }
 
     // Embedded path: backend enforces the app's auth-entry policy, then signs.
-    const address = this._session?.wallet?.address ?? '';
+    const address = this._session?.wallet?.address;
+    if (!address) return this._walletRequired();
     try {
       const { data, error } = await this._api.POST('/tx/sign-auth-entry', {
         body: { address, entryXdr, validUntilLedger: options.validUntilLedger },
@@ -2911,7 +2991,8 @@ export class PollarClient {
     if (this._session?.wallet?.type === 'smart') {
       return { status: 'error', details: 'SEP-53 message signing is not supported for smart (passkey) wallets.' };
     }
-    const address = this._session?.wallet?.address ?? '';
+    const address = this._session?.wallet?.address;
+    if (!address) return this._walletRequired();
 
     // External adapter signs directly (smart already returned above).
     if (this._walletAdapter) {
@@ -2968,7 +3049,8 @@ export class PollarClient {
         details: 'SEP-10 is for classic accounts; smart (passkey) wallets cannot sign a SEP-10 challenge.',
       };
     }
-    const address = this._session?.wallet?.address ?? '';
+    const address = this._session?.wallet?.address;
+    if (!address) return this._walletRequired();
 
     if (this._walletAdapter) {
       if (!this._walletAdapter.signTransaction) {
@@ -4567,21 +4649,6 @@ export class PollarClient {
     // Applied identically to `wallet` and to every entry of `wallets[]` so the
     // back-compat field and the array can't end up describing the same wallet
     // differently.
-    const toPersistedWallet = (w: PollarApplicationConfigContent['wallet']): PollarPersistedWallet => ({
-      type: w.type,
-      // `provider` (the login method) was added to the wire after the generated
-      // OpenAPI types were last cut, so read it defensively until they're regen'd.
-      ...((w as { provider?: string }).provider ? { provider: (w as { provider?: string }).provider as string } : {}),
-      address: w.address ?? w.publicKey ?? null,
-      ...(w.chain !== undefined ? { chain: w.chain } : {}),
-      ...(w.existsOnStellar !== undefined ? { existsOnStellar: w.existsOnStellar } : {}),
-      ...(w.provisioning !== undefined ? { provisioning: w.provisioning } : {}),
-      ...(w.fundingMode !== undefined ? { fundingMode: w.fundingMode } : {}),
-      ...(w.createdAt !== undefined ? { createdAt: w.createdAt } : {}),
-      ...(w.linkedAt !== undefined ? { linkedAt: w.linkedAt } : {}),
-      ...(w.network !== undefined ? { network: w.network } : {}),
-      ...(w.deployTxHash !== undefined ? { deployTxHash: w.deployTxHash } : {}),
-    });
 
     // Record which DPoP key this session's tokens are bound to (= the token's
     // `cnf.jkt`) so a later restore can detect key loss up front instead of

@@ -13,6 +13,7 @@ import {
   TxHistoryState,
   WalletBalanceState,
   WalletId,
+  WalletInfo,
 } from '@pollar/core';
 import React, { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ModalErrorBoundary } from './components/commons';
@@ -56,6 +57,10 @@ interface PollarContextValue {
   openLoginModal: () => void;
 
   isAuthenticated: boolean;
+  /** Whether the signed-in user has a wallet; false until `createWallet` for on-demand apps. */
+  hasWallet: boolean;
+  /** Create the signed-in user's wallet; see `PollarClient.createWallet`. */
+  createWallet: () => Promise<WalletInfo>;
   login: (options: PollarLoginOptions) => void;
   logout: () => void;
   config: PollarConfig;
@@ -240,7 +245,10 @@ export function PollarProvider({ config, styles: propStyles, adapters, children 
       transaction,
       login: (options: PollarLoginOptions) => pollarClient.login(options),
       logout: () => pollarClient.logout(),
-      isAuthenticated: !!walletAddress,
+      // Signed in is having a session: an on-demand app's user has no address yet.
+      isAuthenticated: sessionState !== null,
+      hasWallet: !!walletAddress,
+      createWallet: () => pollarClient.createWallet(),
       buildTx: (operation, params, options) => pollarClient.buildTx(operation, params, options),
       signAndSubmitTx: (unsignedXdr?: string) => pollarClient.signAndSubmitTx(unsignedXdr),
       walletType: pollarClient.getWalletType(),

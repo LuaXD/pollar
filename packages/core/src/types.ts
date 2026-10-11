@@ -28,7 +28,7 @@ export type PollarApplicationConfigContent = PollarApplicationConfigResponse['co
  * app's life, so a wallet does not leave READY because a token was enabled
  * yesterday - per-asset state is `getAssets()`.
  */
-export type WalletProvisioning = 'READY' | 'CREATING' | 'FAILED';
+export type WalletProvisioning = 'READY' | 'CREATING' | 'FAILED' | 'NONE';
 
 export interface PollarPersistedWallet {
   type: 'internal' | 'smart' | 'external';
@@ -51,6 +51,8 @@ export interface PollarPersistedWallet {
   //   READY    -> on the ledger; operations are accepted
   //   CREATING -> queued or in flight; operations are refused for now
   //   FAILED   -> retried to exhaustion; the next login or resume tries again
+  //   NONE     -> no wallet yet (`address` is null): the app creates wallets on
+  //               demand, see PollarClient.createWallet()
   provisioning?: WalletProvisioning;
   // The app's funding policy: IMMEDIATE = Pollar funds/creates the account at
   // onboarding; DEFERRED = left to the app. Lets the UI decide whether to offer
@@ -590,7 +592,9 @@ export type SignOutcome =
  * XDR of the signed `SorobanAuthorizationEntry`, ready to be composed into the
  * caller's transaction envelope (e.g. by a contract that sponsors the gas).
  */
-export type SignAuthEntryOutcome = { status: 'signed'; signedAuthEntry: string } | { status: 'error'; details?: string };
+export type SignAuthEntryOutcome =
+  | { status: 'signed'; signedAuthEntry: string }
+  | { status: 'error'; details?: string; code?: string };
 
 // --- Stellar SEP ownership proofs (client.stellar.*) ----------------------------
 
@@ -836,6 +840,22 @@ export const WALLET_NOT_READY_CODE = 'SDK_WALLET_NOT_READY';
 export function isWalletNotReady(errorOrOutcome: unknown): boolean {
   if (typeof errorOrOutcome !== 'object' || errorOrOutcome === null) return false;
   return (errorOrOutcome as { code?: unknown }).code === WALLET_NOT_READY_CODE;
+}
+
+/**
+ * The server's code for "this user has no wallet". The app creates wallets on
+ * demand (or never), and this user's was not created yet.
+ */
+export const WALLET_REQUIRED_CODE = 'SDK_WALLET_REQUIRED';
+
+/**
+ * True when a failure is "the user has no wallet yet". Accepts a thrown
+ * {@link PollarApiError} or a returned outcome, like {@link isWalletNotReady}.
+ * The fix is {@link PollarClient.createWallet}, not a retry.
+ */
+export function isWalletRequired(errorOrOutcome: unknown): boolean {
+  if (typeof errorOrOutcome !== 'object' || errorOrOutcome === null) return false;
+  return (errorOrOutcome as { code?: unknown }).code === WALLET_REQUIRED_CODE;
 }
 
 /** Type guard for {@link PollarNetworkError} (instanceof is unreliable across
