@@ -1187,8 +1187,8 @@ export type SwapQuoteParams = {
 };
 
 // --- Cards types ----------------------------------------------------------------
-// Written by hand: `/cards/*` is a v2-only group and `schema.d.ts` is regenerated
-// from a running sdk-api. Shapes mirror apps/sdk-api `cards.service.ts`.
+// Written by hand: sdk-api's OpenAPI document carries no response schemas for
+// `/cards/*`. Shapes mirror apps/sdk-api `cards.service.ts`.
 
 export type CardKycStatus =
   | 'NOT_STARTED'

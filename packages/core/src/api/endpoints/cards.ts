@@ -24,9 +24,11 @@ export interface EncryptedCardSecrets {
   encryptedCvc: { iv: string; data: string };
 }
 
-// `/cards/*` is not in the generated `paths` yet (see the Cards types note in
-// types.ts), so the typed client is used through this loose view. It is the same
-// instance: DPoP, auth refresh and retries all still apply.
+// sdk-api publishes `/cards/*` in its OpenAPI document without query, body or
+// response schemas, so the generated `paths` give those routes no parameters and
+// the typed client cannot call them. This loose view is the same instance: DPoP,
+// auth refresh and retries all still apply. The card registration routes under
+// `/requirements` are described, and use the typed client.
 interface LooseApi {
   GET(path: string, init?: { params?: { query?: Record<string, unknown> } }): Promise<{ data?: unknown; error?: unknown }>;
   POST(path: string, init?: { body?: unknown; headers?: Record<string, string> }): Promise<{ data?: unknown; error?: unknown }>;
@@ -207,10 +209,11 @@ export async function getCardProviderRegistration(
   api: PollarApiClient,
   cardProviderId: string,
 ): Promise<CardProviderRegistration> {
-  return content(
-    await loose(api).GET(`/requirements/card-registration/${encodeURIComponent(cardProviderId)}`),
-    'Failed to load the card registration',
-  );
+  const { data, error } = await api.GET('/requirements/card-registration/{cardProviderId}', {
+    params: { path: { cardProviderId } },
+  });
+  if (error || !data?.content) throw cardsApiError(error, 'Failed to load the card registration');
+  return data.content;
 }
 
 /** POST /requirements/card-registration/:cardProviderId. Sending it is the user's consent. */
@@ -218,10 +221,10 @@ export async function submitCardProviderRegistration(
   api: PollarApiClient,
   cardProviderId: string,
 ): Promise<CardProviderRegistrationSubmitted> {
-  return content(
-    await loose(api).POST(`/requirements/card-registration/${encodeURIComponent(cardProviderId)}`, {
-      headers: { 'x-pollar-timeout-ms': String(REGISTRATION_TIMEOUT_MS) },
-    }),
-    'Failed to register with the card provider',
-  );
+  const { data, error } = await api.POST('/requirements/card-registration/{cardProviderId}', {
+    params: { path: { cardProviderId } },
+    headers: { 'x-pollar-timeout-ms': String(REGISTRATION_TIMEOUT_MS) },
+  });
+  if (error || !data?.content) throw cardsApiError(error, 'Failed to register with the card provider');
+  return data.content;
 }

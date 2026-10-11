@@ -22,15 +22,13 @@ export async function getKycStatus(
   corridorId?: string,
   cardProviderId?: string,
 ): Promise<KycStatusContent> {
-  // `cardProviderId` reaches the generated query type once schema.d.ts is regenerated against a
-  // server with cards; until then the query is passed as built.
   const query = {
     ...(providerId ? { providerId } : {}),
     ...(corridorId ? { corridorId } : {}),
     ...(cardProviderId ? { cardProviderId } : {}),
   };
   const { data, error } = await api.GET('/kyc/status', {
-    params: { query: query as { providerId?: string; corridorId?: string } },
+    params: { query },
   });
   if (!data?.content || error) throw kycApiError(error, 'Failed to get KYC status');
   return data.content;
@@ -49,7 +47,7 @@ export async function getKycProviders(
 ): Promise<{ providers: KycProvider[] }> {
   const query = { country, ...(corridorId ? { corridorId } : {}), ...(cardProviderId ? { cardProviderId } : {}) };
   const { data, error } = await api.GET('/kyc/providers', {
-    params: { query: query as { country: string; corridorId?: string } },
+    params: { query },
   });
   if (!data?.content || error) throw kycApiError(error, 'Failed to get KYC providers');
   return data.content;
@@ -67,12 +65,9 @@ const KYC_START_TIMEOUT_MS = 30_000;
  * - flow=iframe/redirect: returns kycUrl to embed or redirect to
  * - flow=form: returns fields[] to render a custom form
  */
-export async function startKyc(
-  api: PollarApiClient,
-  body: KycStartBody & { cardProviderId?: string },
-): Promise<KycStartResponse> {
+export async function startKyc(api: PollarApiClient, body: KycStartBody): Promise<KycStartResponse> {
   const { data, error } = await api.POST('/kyc/start', {
-    body: body as KycStartBody,
+    body,
     headers: { 'x-pollar-timeout-ms': String(KYC_START_TIMEOUT_MS) },
   });
   if (!data?.content || error) throw kycApiError(error, 'Failed to start KYC');
