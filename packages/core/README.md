@@ -2,7 +2,7 @@
 
 Core SDK for [Pollar](https://pollar.xyz) — authentication and transaction utilities for Stellar and Solana applications.
 
-> **0.11.4** (candidate `0.11.4-rc.1` on the `next` tag). **KYC by ramp corridor**: the v2 ramp quote
+> **0.11.4**. **KYC by ramp corridor**: the v2 ramp quote
 > types `requirementsRequired` (the first step a route still needs) and `unavailable` (providers that
 > failed to quote just now); new requirement methods (`getAppRequirements`, `getRequirementForm` /
 > `submitRequirementForm`, `getRegistryCheck` / `submitRegistryCheck`, `getProviderRegistration` /
@@ -29,6 +29,15 @@ Core SDK for [Pollar](https://pollar.xyz) — authentication and transaction uti
 >   to the nonce. Every request carries **`x-pollar-sdk`** (`core/<version> <web|rn|node>`), which
 >   needs an sdk-api that lists it in CORS `allowHeaders`. New config: `loginTimeoutMs` (45s),
 >   replacing the 10s `requestTimeoutMs` on login alone.
+>
+> **Cards** (additive): `getCardProviders()`, `getCardRequirements()`, `createCardHolder()`,
+> `submitCardKyc()`, `issueCard()`, `getCards()`, `getCardBalance()`, `getCardTransactions()`,
+> `fundCard()` and the rest of the card methods. `revealCardSecrets()` decrypts the card number and
+> CVC on the device with a one-shot key the server never sees, on WebCrypto or in plain JavaScript
+> on React Native. **Wallets on demand**: for an app that creates wallets on demand or never, a
+> session without a wallet restores as signed in (`provisioning: 'NONE'`), `hasWallet()` says
+> whether there is one on any chain, `createWallet()` creates it, and `isWalletRequired()` names the
+> `SDK_WALLET_REQUIRED` a signing call returns without one.
 >
 > Earlier: **0.11.3** was a patch focused on session resilience. A session
 > **survives reloads when the DPoP keypair fails to persist**: the persisted session records

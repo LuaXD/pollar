@@ -3,14 +3,25 @@
 import type { ProviderRegistration } from '@pollar/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePollar } from '../../context';
+import { PollarModalFooter } from '../commons';
 import { buildModalCssVars, modalChrome } from '../modal-theme';
 import { formLanguage } from '../requirement-form-modal/form-fields';
-import { errorCode, missingFieldsOf, REGISTRATION_COPY, SHARED_FIELD_LABELS } from '../registry-check-modal/registry-copy';
+import {
+  errorCode,
+  missingFieldsOf,
+  REGISTRATION_COPY,
+  registrationFixOf,
+  SHARED_FIELD_LABELS,
+} from '../registry-check-modal/registry-copy';
+import { RequirementFormModal } from '../requirement-form-modal/RequirementFormModal';
 import '../shared.css';
 import '../requirement-form-modal/RequirementFormModal.css';
 
 interface ProviderRegistrationModalProps {
-  corridorId: string;
+  /** The route whose ramp the user registers with. */
+  corridorId?: string;
+  /** Or the card provider. One of the two. */
+  cardProviderId?: string;
   /** Position of this step over the route's steps, when known. */
   progress?: { position: number; total: number };
   onClose: () => void;
@@ -22,7 +33,13 @@ interface ProviderRegistrationModalProps {
  * One PROVIDER_REGISTRATION step: what the ramp provider receives, listed before the
  * user consents. Registering is the consent; nothing is sent until then.
  */
-export function ProviderRegistrationModal({ corridorId, progress, onClose, onRegistered }: ProviderRegistrationModalProps) {
+export function ProviderRegistrationModal({
+  corridorId,
+  cardProviderId,
+  progress,
+  onClose,
+  onRegistered,
+}: ProviderRegistrationModalProps) {
   const { getClient, styles } = usePollar();
   const client = getClient();
   const { theme, accentColor, styleOverrides, overlayStyle } = modalChrome(styles);
@@ -31,10 +48,16 @@ export function ProviderRegistrationModal({ corridorId, progress, onClose, onReg
   const copy = REGISTRATION_COPY[language];
   const labels = SHARED_FIELD_LABELS[language];
 
-  const [registration, setRegistration] = useState<ProviderRegistration | null>(null);
+  const [registration, setRegistration] = useState<
+    (Pick<ProviderRegistration, 'ready' | 'fields'> & { status: ProviderRegistration['status'] | 'incomplete' }) | null
+  >(null);
+  const [termsUrl, setTermsUrl] = useState<string | null>(null);
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // The form holding answers the registration could not use: reopened to fix them, then the registration is sent again.
+  const [fixForm, setFixForm] = useState<string | null>(null);
+  const [fixing, setFixing] = useState<string | null>(null);
   const mounted = useRef(true);
   useEffect(() => {
     // Set on every mount: development mounts components twice, and the cleanup of the
@@ -46,8 +69,13 @@ export function ProviderRegistrationModal({ corridorId, progress, onClose, onReg
   }, []);
 
   useEffect(() => {
-    client
-      .getProviderRegistration(corridorId)
+    const load = cardProviderId
+      ? client.getCardProviderRegistration(cardProviderId).then((loaded) => {
+          setTermsUrl(loaded.termsUrl);
+          return loaded;
+        })
+      : client.getProviderRegistration(corridorId ?? '');
+    load
       .then((loaded) => {
         if (!mounted.current) return;
         if (loaded.status === 'registered') onRegistered();
@@ -56,31 +84,53 @@ export function ProviderRegistrationModal({ corridorId, progress, onClose, onReg
       .catch(() => mounted.current && setError(copy.loadError));
     // The client instance, the copy and the callback do not change while the modal is open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [corridorId]);
+  }, [corridorId, cardProviderId]);
 
   async function submit() {
     setSubmitting(true);
     setError(null);
+    setFixForm(null);
     try {
-      await client.submitProviderRegistration(corridorId);
+      if (cardProviderId) await client.submitCardProviderRegistration(cardProviderId);
+      else await client.submitProviderRegistration(corridorId ?? '');
       if (mounted.current) onRegistered();
     } catch (e) {
       if (!mounted.current) return;
       const code = errorCode(e);
       if (code === 'KYC_REGISTRATION_MISSING_DATA') {
+        const fix = registrationFixOf(e);
+        const named = (keys: string[]) => keys.map((key) => labels[key] ?? key).join(', ');
+        const missing = missingFieldsOf(e).filter((key) => !fix.invalid.includes(key));
         setError(
-          copy.missing.replace(
-            '{fields}',
-            missingFieldsOf(e)
-              .map((key) => labels[key] ?? key)
-              .join(', '),
-          ),
+          [
+            fix.invalid.length ? copy.invalid.replace('{fields}', named(fix.invalid)) : null,
+            missing.length ? copy.missing.replace('{fields}', named(missing)) : null,
+          ]
+            .filter(Boolean)
+            .join(' '),
         );
+        setFixForm(fix.forms[0]?.formId ?? null);
       } else if (code === 'KYC_REGISTRATION_STEPS_PENDING') setError(copy.notReady);
+      else if (code === 'SDK_CARDS_PROVIDER_ERROR') setError(copy.providerDown);
+      else if (code === 'SDK_CARDS_IP_NOT_SUPPORTED') setError(copy.ipNotSupported);
+      else if (code === 'SDK_CARDS_PROVIDER_USER_TAKEN') setError(copy.emailTaken);
       else setError(copy.submitError);
     } finally {
       if (mounted.current) setSubmitting(false);
     }
+  }
+
+  if (fixing) {
+    return (
+      <RequirementFormModal
+        formId={fixing}
+        onClose={() => setFixing(null)}
+        onSubmitted={() => {
+          setFixing(null);
+          void submit();
+        }}
+      />
+    );
   }
 
   return (
@@ -114,6 +164,13 @@ export function ProviderRegistrationModal({ corridorId, progress, onClose, onReg
             {error}
           </p>
         )}
+        {fixForm && !submitting && (
+          <div className="pollar-modal-actions">
+            <button type="button" className="pollar-btn-primary" onClick={() => setFixing(fixForm)}>
+              {copy.fix}
+            </button>
+          </div>
+        )}
 
         {!registration && !error && (
           <div className="pollar-loading-block">
@@ -131,12 +188,24 @@ export function ProviderRegistrationModal({ corridorId, progress, onClose, onReg
           >
             {registration.ready ? (
               <>
+                {registration.status === 'incomplete' && (
+                  <p className="pollar-form-error" role="status">
+                    {copy.incomplete}
+                  </p>
+                )}
                 <p className="pollar-form-description">{copy.intro}</p>
                 <ul className="pollar-form-description">
                   {registration.fields.map((key) => (
                     <li key={key}>{labels[key] ?? key}</li>
                   ))}
                 </ul>
+                {termsUrl && (
+                  <p className="pollar-form-description">
+                    <a href={termsUrl} target="_blank" rel="noreferrer">
+                      {copy.terms}
+                    </a>
+                  </p>
+                )}
                 <label className="pollar-form-choice">
                   <input
                     type="checkbox"
@@ -164,6 +233,7 @@ export function ProviderRegistrationModal({ corridorId, progress, onClose, onReg
             </div>
           </form>
         )}
+        <PollarModalFooter />
       </div>
     </div>
   );

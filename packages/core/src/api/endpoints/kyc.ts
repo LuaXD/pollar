@@ -16,9 +16,19 @@ function kycApiError(error: unknown, fallback: string): PollarApiError {
  * satisfied, otherwise the status of the option to ask for.
  * Requires a valid auth token in the API client.
  */
-export async function getKycStatus(api: PollarApiClient, providerId?: string, corridorId?: string): Promise<KycStatusContent> {
+export async function getKycStatus(
+  api: PollarApiClient,
+  providerId?: string,
+  corridorId?: string,
+  cardProviderId?: string,
+): Promise<KycStatusContent> {
+  const query = {
+    ...(providerId ? { providerId } : {}),
+    ...(corridorId ? { corridorId } : {}),
+    ...(cardProviderId ? { cardProviderId } : {}),
+  };
   const { data, error } = await api.GET('/kyc/status', {
-    params: { query: { ...(providerId ? { providerId } : {}), ...(corridorId ? { corridorId } : {}) } },
+    params: { query },
   });
   if (!data?.content || error) throw kycApiError(error, 'Failed to get KYC status');
   return data.content;
@@ -33,9 +43,11 @@ export async function getKycProviders(
   api: PollarApiClient,
   country: string,
   corridorId?: string,
+  cardProviderId?: string,
 ): Promise<{ providers: KycProvider[] }> {
+  const query = { country, ...(corridorId ? { corridorId } : {}), ...(cardProviderId ? { cardProviderId } : {}) };
   const { data, error } = await api.GET('/kyc/providers', {
-    params: { query: { country, ...(corridorId ? { corridorId } : {}) } },
+    params: { query },
   });
   if (!data?.content || error) throw kycApiError(error, 'Failed to get KYC providers');
   return data.content;
@@ -78,14 +90,16 @@ export async function resolveKyc(
   country?: string,
   corridorId?: string,
   idempotencyKey?: string,
+  cardProviderId?: string,
 ): Promise<{ alreadyApproved: boolean } & Partial<KycStartResponse>> {
-  const { status } = await getKycStatus(api, providerId, corridorId);
+  const { status } = await getKycStatus(api, providerId, corridorId, cardProviderId);
   if (status === 'approved') return { alreadyApproved: true };
   try {
     const started = await startKyc(api, {
       providerId,
       level,
       ...(corridorId ? { corridorId } : {}),
+      ...(cardProviderId ? { cardProviderId } : {}),
       ...(country ? { country: country.trim().toUpperCase() } : {}),
       ...(idempotencyKey ? { idempotencyKey } : {}),
     });
@@ -129,11 +143,19 @@ function isSettled({ status, decisionStatus }: KycStatusContent): boolean {
 export async function pollKycDecision(
   api: PollarApiClient,
   providerId: string,
-  { intervalMs = 3000, timeoutMs = 300_000, corridorId }: { intervalMs?: number; timeoutMs?: number; corridorId?: string } = {},
+  {
+    intervalMs = 3000,
+    timeoutMs = 300_000,
+    corridorId,
+    cardProviderId,
+  }: { intervalMs?: number; timeoutMs?: number; corridorId?: string; cardProviderId?: string } = {},
 ): Promise<KycStatusContent> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
-    const read = corridorId ? await getKycStatus(api, undefined, corridorId) : await getKycStatus(api, providerId);
+    const read =
+      corridorId || cardProviderId
+        ? await getKycStatus(api, undefined, corridorId, cardProviderId)
+        : await getKycStatus(api, providerId);
     if (isSettled(read)) return read;
     await new Promise((r) => setTimeout(r, intervalMs));
   }
@@ -148,7 +170,7 @@ export async function pollKycDecision(
 export async function pollKycStatus(
   api: PollarApiClient,
   providerId: string,
-  opts: { intervalMs?: number; timeoutMs?: number; corridorId?: string } = {},
+  opts: { intervalMs?: number; timeoutMs?: number; corridorId?: string; cardProviderId?: string } = {},
 ): Promise<KycStatus> {
   const read = await pollKycDecision(api, providerId, opts);
   return read.decisionStatus === 'expired' ? 'expired' : read.status;

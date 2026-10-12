@@ -13,12 +13,14 @@ import {
   TxHistoryState,
   WalletBalanceState,
   WalletId,
+  WalletInfo,
 } from '@pollar/core';
 import React, { createContext, ReactNode, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { ModalErrorBoundary } from './components/commons';
 import { AppKycFlow } from './components/kyc-modal/AppKycFlow';
 import { LoginModal } from './components/login-modal/LoginModal';
 import { RampWidget } from './components/ramp-widget/RampWidget';
+import { CardModal } from './components/card-modal/CardModal';
 import { TransactionModal } from './components/transaction-modal/TransactionModal';
 import { TxHistoryModal } from './components/tx-history-modal/TxHistoryModal';
 import { WalletBalanceModal } from './components/wallet-balance-modal/WalletBalanceModal';
@@ -55,6 +57,10 @@ interface PollarContextValue {
   openLoginModal: () => void;
 
   isAuthenticated: boolean;
+  /** Whether the signed-in user has a wallet; false until `createWallet` for on-demand apps. */
+  hasWallet: boolean;
+  /** Create the signed-in user's wallet; see `PollarClient.createWallet`. */
+  createWallet: () => Promise<WalletInfo>;
   login: (options: PollarLoginOptions) => void;
   logout: () => void;
   config: PollarConfig;
@@ -83,6 +89,11 @@ interface PollarContextValue {
   }) => void;
   // ramps
   openRampWidget: () => void;
+  /**
+   * Open the Cards modal: the platform's steps, the provider sign-up and KYC, the
+   * card itself, its activity and funding. The card calls live on {@link PollarClient}.
+   */
+  openCardModal: () => void;
   // tx history
   txHistory: TxHistoryState;
   openTxHistoryModal: () => void;
@@ -203,8 +214,27 @@ export function PollarProvider({ config, styles: propStyles, adapters, children 
     onApproved?: () => void;
   }>({});
   const [rampWidgetOpen, setRampWidgetOpen] = useState(false);
+  const [cardModalOpen, setCardModalOpen] = useState(false);
   const [txHistoryModalOpen, setTxHistoryModalOpen] = useState(false);
   const [walletBalanceModalOpen, setWalletBalanceModalOpen] = useState(false);
+
+  // When the session ends (logout, revoked, ended elsewhere) every modal that acts
+  // on it closes, so none keeps the previous user's data on screen; reopening loads
+  // from scratch. Losing the network does not end the session (core keeps it and
+  // retries), so this never fires offline. The login modal stays.
+  useEffect(
+    () =>
+      pollarClient.onAuthStateChange((authState) => {
+        if (authState.step !== 'idle') return;
+        setTransactionModalOpen(false);
+        setKycModalOpen(false);
+        setRampWidgetOpen(false);
+        setCardModalOpen(false);
+        setTxHistoryModalOpen(false);
+        setWalletBalanceModalOpen(false);
+      }),
+    [pollarClient],
+  );
 
   const walletAddress = sessionState?.wallet?.address || '';
 
@@ -215,7 +245,10 @@ export function PollarProvider({ config, styles: propStyles, adapters, children 
       transaction,
       login: (options: PollarLoginOptions) => pollarClient.login(options),
       logout: () => pollarClient.logout(),
-      isAuthenticated: !!walletAddress,
+      // Signed in is having a session: an on-demand app's user has no address yet.
+      isAuthenticated: sessionState !== null,
+      hasWallet: pollarClient.hasWallet(),
+      createWallet: () => pollarClient.createWallet(),
       buildTx: (operation, params, options) => pollarClient.buildTx(operation, params, options),
       signAndSubmitTx: (unsignedXdr?: string) => pollarClient.signAndSubmitTx(unsignedXdr),
       walletType: pollarClient.getWalletType(),
@@ -226,6 +259,7 @@ export function PollarProvider({ config, styles: propStyles, adapters, children 
         setKycModalOpen(true);
       },
       openRampWidget: () => setRampWidgetOpen(true),
+      openCardModal: () => setCardModalOpen(true),
       txHistory,
       openTxHistoryModal: () => setTxHistoryModalOpen(true),
       openWalletBalanceModal: () => setWalletBalanceModalOpen(true),
@@ -277,6 +311,12 @@ export function PollarProvider({ config, styles: propStyles, adapters, children 
       {rampWidgetOpen && (
         <ModalErrorBoundary onClose={() => setRampWidgetOpen(false)}>
           <RampWidget onClose={() => setRampWidgetOpen(false)} />
+        </ModalErrorBoundary>
+      )}
+      {cardModalOpen && (
+        // Keyed by the wallet: a different user, or signing in with it open, starts it from scratch.
+        <ModalErrorBoundary key={walletAddress} onClose={() => setCardModalOpen(false)}>
+          <CardModal onClose={() => setCardModalOpen(false)} />
         </ModalErrorBoundary>
       )}
       {txHistoryModalOpen && (

@@ -30,7 +30,7 @@ const DPOP_CLOCK_OFFSET_SUFFIX = ':dpopClockOffset';
  * every writer runs it through here first.
  */
 export function isWalletProvisioning(value: unknown): value is WalletProvisioning {
-  return value === 'READY' || value === 'CREATING' || value === 'FAILED';
+  return value === 'READY' || value === 'CREATING' || value === 'FAILED' || value === 'NONE';
 }
 
 export function sessionStorageKey(apiKeyHash: string): string {
@@ -245,7 +245,9 @@ function isValidWallet(value: unknown, label: string, logger: PollarLogger): boo
     return false;
   }
   if (w['provisioning'] !== undefined && !isWalletProvisioning(w['provisioning'])) {
-    logger.debug(`[PollarClient:session] Invalid session — ${label}.provisioning must be READY|CREATING|FAILED if present`);
+    logger.debug(
+      `[PollarClient:session] Invalid session — ${label}.provisioning must be READY|CREATING|FAILED|NONE if present`,
+    );
     return false;
   }
   if (w['createdAt'] !== undefined && (typeof w['createdAt'] !== 'number' || !Number.isFinite(w['createdAt']))) {

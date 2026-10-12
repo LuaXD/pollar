@@ -3,7 +3,7 @@
 React bindings for [Pollar](https://pollar.xyz) — drop-in authentication UI, transaction modals, and hooks for
 Stellar and Solana applications.
 
-> **0.11.4** (candidate `0.11.4-rc.1` on the `next` tag, which requires `@pollar/core@^0.11.4-rc.1`).
+> **0.11.4** (requires `@pollar/core@^0.11.4`).
 > **KYC by ramp corridor**: `<RampWidget>` lists routes locked by a requirement step and opens that
 > step - `<KycModal>`, `<RequirementFormModal>`, `<RegistryCheckModal>` or `<ProviderRegistrationModal>`
 > (all exported) - then quotes again; `openKycModal()` without a corridor walks the app's own KYC
@@ -31,6 +31,14 @@ Stellar and Solana applications.
 > (`onboardingStatus: 'awaiting_provider'` says the account is being set up and stops the
 > pointless KYC poll), and three failures that printed as raw error codes get sentences.
 > `RampWidgetTemplateProps` gains an optional `onboardingStatus`.
+>
+> **Cards**: `<CardModal>`, opened with `openCardModal()` from `usePollar()`, walks the user through
+> the card provider's steps, sign-up and issuing, then shows the card with the app's logo and card
+> label, its balance and movements, funding from the wallet (each funding's step while it is in
+> flight) and the number revealed on the device. **Wallets on demand**: `usePollar()` exposes
+> `hasWallet` and `createWallet`, and signed in without a wallet `<WalletButton>` offers Create wallet
+> to an app that creates wallets on demand. The modals that act on the session close when it ends,
+> and form fields are checked before sending.
 >
 > Earlier: **0.11.3** required `@pollar/core@^0.11.3`. A **pre-built `PollarClient`
 > passed to `PollarProvider` no longer loses passkey support**: the provider installs the

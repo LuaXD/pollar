@@ -2,10 +2,12 @@
 
 ## 0.11.4
 
-> First candidate: `0.11.4-rc.1` (`@pollar/core`, `@pollar/react` and
-> `@pollar/react-native`, on the `next` tag).
+> `@pollar/core`, `@pollar/react` and `@pollar/react-native`, all three on the
+> same version from this release on. `@pollar/core` and `@pollar/react` had
+> candidates `0.11.4-rc.1` to `0.11.4-rc.4` on the `next` tag; this is
+> `@pollar/react-native`'s first release since `0.1.1`.
 >
-> Three pieces of work. The platform now creates an end-user's Stellar account
+> Five pieces of work. The platform now creates an end-user's Stellar account
 > in the background instead of inside `POST /auth/login`, so a login returns as
 > soon as the wallet exists rather than waiting on the network. This release is
 > the SDK half of that: the wallet reports where its on-chain account stands,
@@ -24,6 +26,15 @@
 >
 > Third, the Send, Swap, Receive, Sessions and Wallet balance modals follow the
 > new design, and the SDK is licensed under Apache-2.0 from this release on.
+>
+> Fourth, **Cards**: an app that enables a card provider offers its users a card
+> funded from their wallet, through `<CardModal>` (web and React Native) or the
+> card methods on `PollarClient`. The card number is decrypted on the device,
+> never on a Pollar server.
+>
+> Fifth, **wallets created on demand**: for an app whose dashboard creates
+> wallets on demand (or never), a session without a wallet is a signed-in
+> session, and `createWallet()` creates it when the app decides.
 >
 > No change is needed in an app that uses the built-in components. Behaviour
 > changes in the KYC endpoints and new required template props affect apps that
@@ -235,6 +246,10 @@ expired`) and `reviewReason`, which say why a `pending` is pending.
   vendor, which can take longer than the 10 s request default; the client then
   dropped a start the server finished, and the user's retry raced it. Every
   other request keeps 10 s.
+- The same 30 s budget covers the other calls that wait on a vendor or a
+  provider: `submitRegistryCheck` (SEGIP), `submitProviderRegistration`
+  (`customers/create`) and the on-ramp and off-ramp starts, which re-quote and
+  confirm the order at the provider.
 
 #### `@pollar/react`
 
@@ -276,17 +291,123 @@ expired`) and `reviewReason`, which say why a `pending` is pending.
   and `onStartAgain`.
 - Fix: the requirement form and the app KYC flow no longer stay loading in
   development, where React mounts components twice.
+- **`<RegistryCheckModal>` names the fields SEGIP did not confirm** and outlines
+  them in the error color until the next try, so the user corrects those and
+  tries again. An `SDK_KYC_ALREADY_APPROVED` answer counts as the approval.
+- **A registration the provider refused for bad data reopens the form that holds
+  it.** When `KYC_REGISTRATION_MISSING_DATA` comes with the keys the provider
+  cannot use (`invalid`) and the forms that hold them (`forms`),
+  `<ProviderRegistrationModal>` says which details to correct, offers "Review my
+  details", opens that form and sends the registration again once it is saved.
+  A server that only sends `missing` keeps the previous behaviour.
+- **Form fields are checked before sending** - pattern, length and range, with
+  the rules sdk-api applies on submit (which still decides). A field is checked
+  when the user leaves it and rechecked on each keystroke while it shows an
+  error.
+- The KYC, form, registry, registration and ramp modals show the "Protected by
+  Pollar" footer like the other modals.
 
 #### `@pollar/react-native`
 
-- **Joins the SDK version line:** `0.1.1` -> `0.11.4-rc.1`, published with core
-  and react, with `@pollar/core@^0.11.4-rc.1` as its only link to core (a peer).
+- **Joins the SDK version line:** `0.1.1` -> `0.11.4`, published with core and
+  react, with `@pollar/core@^0.11.4` as its only link to core (a peer).
+- The SEGIP field outline, the form reopened after a refused registration and
+  the field checks before sending work the same as on the web.
 - A hosted `KycModal` (opens the vendor in the browser and checks on return) and
   a real `RampWidget` with the same requirement gate as the web one: locked
   routes, the step modals (`RequirementFormModal`, `RegistryCheckModal`,
   `ProviderRegistrationModal`, exported) and the re-quote after a step. In
   `0.1.1` both were previews that simulated the result.
 - `openKycModal()` without a corridor walks the app's own KYC steps.
+
+### Cards
+
+An app enables card providers in its dashboard; each provider can require the
+same ordered steps as a ramp corridor (`KYC`, `FORM`, `PROVIDER_REGISTRATION`)
+before the user signs up. The card is funded from the user's Stellar wallet.
+This needs an sdk-api that serves `/v2/cards` (pollar-platform DEV-106).
+
+#### `@pollar/core`
+
+- **New card methods on `PollarClient`** (the endpoints behind them are also
+  exported as standalone functions): `getCardProviders()`, `getCardRequirements()`,
+  `getCardProviderRegistration()` / `submitCardProviderRegistration()`,
+  `getCardHolder()`, `createCardHolder()`, `submitCardKyc()`,
+  `getCardOccupations()`, `getCards()`, `issueCard()`, `getCardBalance()`,
+  `getCardTransactions()`, `getCardDepositAddresses()`, `fundCard()`,
+  `getCardFunding()`, `listCardFundings()` and `revealCardSecrets()`. Types:
+  `CardProvider` (with `cardLabel`, the name the app gives its card),
+  `CardHolder`, `CardInfo`, `CardBalance`, `CardFunding`, `CardSecrets` and the
+  status unions.
+- **`revealCardSecrets(cardId)` decrypts the card number and CVC on the
+  device.** The device makes a one-shot key, wraps it with the provider's public
+  key, and opens what the provider encrypted with it; the server only relays
+  ciphertext. It runs on WebCrypto where the runtime has it and in plain
+  JavaScript on React Native. Show the result and drop it: never store or log it.
+- `fundCard({ amount })` moves the amount from the wallet to the card; each
+  funding reports its step until the provider credits it.
+- `CardProviderRegistration.status` includes `'incomplete'`: the provider has
+  the user but not their KYC.
+- New dependency: `@noble/ciphers` (AES-GCM for the card secrets where WebCrypto
+  is missing).
+
+#### `@pollar/react` and `@pollar/react-native`
+
+- **New: `<CardModal>`, opened with `openCardModal()` from `usePollar()`.** It
+  walks the user through the provider's steps, the provider's own KYC form with
+  its terms, issuing, and then the card itself: the card face with the app's
+  logo and card label, the balance, the movements, funding from the wallet and
+  revealing the number.
+- A funding in flight shows a spinner, its step (of 4) and what it waits on,
+  re-reads every 5 s, and refreshes the balance once the funding is credited.
+  The user can close the modal meanwhile.
+- A holder who still owes the platform's steps gets those steps, not the
+  provider's form, and the modal waits for the holder, the requirements and an
+  approved holder's card before it shows a stage, so it never flashes the wrong
+  one or renders blank.
+- The provider being down, a connection the provider does not accept, and an
+  email already registered with the provider through another app each get their
+  own sentence (`SDK_CARDS_PROVIDER_ERROR`, `SDK_CARDS_IP_NOT_SUPPORTED`,
+  `SDK_CARDS_PROVIDER_USER_TAKEN`).
+
+### Wallets created on demand
+
+For an app whose dashboard creates wallets on demand, or never. Apps that create
+the wallet at login (the default) see no change. This needs an sdk-api that
+serves `POST /v2/wallet/provision`.
+
+#### `@pollar/core`
+
+- **A session without a wallet restores as signed in.** `WalletProvisioning`
+  gains `'NONE'`, and being signed in follows the session, not the wallet
+  address. An interactive wallet adapter no longer auto-logs in over an existing
+  session.
+- **New: `hasWallet()` and `createWallet()`.** `hasWallet()` counts a wallet on
+  any chain (a Solana login has no Stellar wallet). `createWallet()` calls
+  `POST /wallet/provision`, is idempotent, and updates the session and notifies
+  subscribers the way a login does. It throws
+  `SDK_WALLET_PROVISIONING_DISABLED` for an app that creates no wallets and
+  `SDK_WALLET_PROVISIONING_UNSUPPORTED` for a user who signed in with their own
+  wallet or a passkey.
+- **New: `WALLET_REQUIRED_CODE` and `isWalletRequired()`,** the pair to
+  `isWalletNotReady()`. A signing call made without a wallet returns
+  `SDK_WALLET_REQUIRED` locally instead of sending an empty address.
+
+#### `@pollar/react` and `@pollar/react-native`
+
+- `usePollar()` exposes `hasWallet` and `createWallet`.
+- Signed in without a wallet, `<WalletButton>` shows the account menu: Create
+  wallet for an app that creates wallets on demand, and "Signed in" for one that
+  creates none. It reads `application.walletProvisioning` from the app config,
+  which older servers omit.
+
+### Session end
+
+- **The modals that act on the session close when it ends** - logout, a revoked
+  or rejected session, or a logout in another tab - so none keeps the previous
+  user's data on screen. The login modal stays, and a network failure does not
+  count as an end, since core keeps the session then. `<CardModal>` also starts
+  over when the wallet changes. Web and React Native.
 
 ### Wallet modals redesign (`@pollar/react`)
 
@@ -342,6 +463,13 @@ expired`) and `reviewReason`, which say why a `pending` is pending.
   forwarding, typed errors, settled polling, the modal states, every step type
   opening its own modal and re-quoting once, and the React Native widgets), and
   run in `npm run test:smoke`.
+- `smoke-card-secrets.cjs` (both card secret engines, against Node's own RSA and
+  AES-GCM playing the provider),
+  `smoke-card-stage.cjs` (which stage the card modal shows),
+  `smoke-registration-fix.cjs` (the form reopened after a refused
+  registration), `smoke-form-fields.cjs` (the field checks) and
+  `smoke-wallet-less.cjs` (sessions without a wallet, `createWallet()`, a
+  restored Solana session) run in `npm run test:smoke`.
 - `smoke-client.cjs` gains two provisioning blocks: a wallet restored mid-
   creation is polled until its account lands (replay on subscribe, `READY`
   reaching `getWallet()` and `existsOnStellar`, polling stopping there), and a

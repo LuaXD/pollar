@@ -3,6 +3,7 @@
 import type { RequirementForm, RequirementFormField } from '@pollar/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { usePollar } from '../../context';
+import { PollarModalFooter } from '../commons';
 import { buildModalCssVars, modalChrome } from '../modal-theme';
 import {
   answersOf,
@@ -11,6 +12,7 @@ import {
   fieldErrorsOf,
   formLanguage,
   initialValues,
+  localFieldError,
   localFieldErrors,
   localized,
   type FormLanguage,
@@ -34,12 +36,14 @@ function FieldInput({
   language,
   disabled,
   onChange,
+  onBlur,
 }: {
   field: RequirementFormField;
   value: FormValues[string];
   language: FormLanguage;
   disabled: boolean;
   onChange: (value: FormValues[string]) => void;
+  onBlur: () => void;
 }) {
   const id = `pollar-form-${field.key}`;
   const text = typeof value === 'string' ? value : '';
@@ -84,6 +88,7 @@ function FieldInput({
           disabled={disabled}
           maxLength={field.validation?.maxLength}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
         />
       );
     default:
@@ -99,6 +104,7 @@ function FieldInput({
           max={field.validation?.max}
           maxLength={field.validation?.maxLength}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={onBlur}
         />
       );
   }
@@ -140,6 +146,29 @@ export function RequirementFormModal({ formId, progress, onClose, onSubmitted }:
     // The client instance and the copy do not change while the modal is open.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formId]);
+
+  /** Show (or clear) one field's local error; an empty value keeps what the server said. */
+  function recheck(field: RequirementFormField, value: FormValues[string] | undefined, onlyIfShown: boolean) {
+    if (typeof value === 'string' && !value.trim()) return;
+    setFieldErrors((errors) => {
+      if (onlyIfShown && !(field.key in errors)) return errors;
+      const next = { ...errors };
+      const error = localFieldError(field, value);
+      if (error) next[field.key] = error;
+      else delete next[field.key];
+      return next;
+    });
+  }
+
+  // A field is checked when the user leaves it; once it shows an error, every keystroke rechecks it.
+  function change(field: RequirementFormField, value: FormValues[string]) {
+    setValues((v) => ({ ...v, [field.key]: value }));
+    recheck(field, value, true);
+  }
+
+  function blur(field: RequirementFormField) {
+    recheck(field, values[field.key], false);
+  }
 
   async function submit() {
     if (!form) return;
@@ -236,7 +265,8 @@ export function RequirementFormModal({ formId, progress, onClose, onSubmitted }:
                         value={values[field.key] ?? ''}
                         language={language}
                         disabled={submitting}
-                        onChange={(value) => setValues((v) => ({ ...v, [field.key]: value }))}
+                        onChange={(value) => change(field, value)}
+                        onBlur={() => blur(field)}
                       />
                     </>
                   )}
@@ -259,6 +289,7 @@ export function RequirementFormModal({ formId, progress, onClose, onSubmitted }:
             </div>
           </form>
         )}
+        <PollarModalFooter />
       </div>
     </div>
   );

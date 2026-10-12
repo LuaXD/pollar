@@ -28,7 +28,7 @@ export type PollarApplicationConfigContent = PollarApplicationConfigResponse['co
  * app's life, so a wallet does not leave READY because a token was enabled
  * yesterday - per-asset state is `getAssets()`.
  */
-export type WalletProvisioning = 'READY' | 'CREATING' | 'FAILED';
+export type WalletProvisioning = 'READY' | 'CREATING' | 'FAILED' | 'NONE';
 
 export interface PollarPersistedWallet {
   type: 'internal' | 'smart' | 'external';
@@ -51,6 +51,8 @@ export interface PollarPersistedWallet {
   //   READY    -> on the ledger; operations are accepted
   //   CREATING -> queued or in flight; operations are refused for now
   //   FAILED   -> retried to exhaustion; the next login or resume tries again
+  //   NONE     -> no wallet yet (`address` is null): the app creates wallets on
+  //               demand, see PollarClient.createWallet()
   provisioning?: WalletProvisioning;
   // The app's funding policy: IMMEDIATE = Pollar funds/creates the account at
   // onboarding; DEFERRED = left to the app. Lets the UI decide whether to offer
@@ -590,7 +592,9 @@ export type SignOutcome =
  * XDR of the signed `SorobanAuthorizationEntry`, ready to be composed into the
  * caller's transaction envelope (e.g. by a contract that sponsors the gas).
  */
-export type SignAuthEntryOutcome = { status: 'signed'; signedAuthEntry: string } | { status: 'error'; details?: string };
+export type SignAuthEntryOutcome =
+  | { status: 'signed'; signedAuthEntry: string }
+  | { status: 'error'; details?: string; code?: string };
 
 // --- Stellar SEP ownership proofs (client.stellar.*) ----------------------------
 
@@ -836,6 +840,22 @@ export const WALLET_NOT_READY_CODE = 'SDK_WALLET_NOT_READY';
 export function isWalletNotReady(errorOrOutcome: unknown): boolean {
   if (typeof errorOrOutcome !== 'object' || errorOrOutcome === null) return false;
   return (errorOrOutcome as { code?: unknown }).code === WALLET_NOT_READY_CODE;
+}
+
+/**
+ * The server's code for "this user has no wallet". The app creates wallets on
+ * demand (or never), and this user's was not created yet.
+ */
+export const WALLET_REQUIRED_CODE = 'SDK_WALLET_REQUIRED';
+
+/**
+ * True when a failure is "the user has no wallet yet". Accepts a thrown
+ * {@link PollarApiError} or a returned outcome, like {@link isWalletNotReady}.
+ * The fix is {@link PollarClient.createWallet}, not a retry.
+ */
+export function isWalletRequired(errorOrOutcome: unknown): boolean {
+  if (typeof errorOrOutcome !== 'object' || errorOrOutcome === null) return false;
+  return (errorOrOutcome as { code?: unknown }).code === WALLET_REQUIRED_CODE;
 }
 
 /** Type guard for {@link PollarNetworkError} (instanceof is unreliable across
@@ -1165,6 +1185,206 @@ export type SwapQuoteParams = {
   provider?: SwapProvider;
   slippageBps?: number;
 };
+
+// --- Cards types ----------------------------------------------------------------
+// The public names for the `/cards/*` contents. `api/endpoints/cards.ts` returns
+// the generated response types as these, so the compiler flags any drift.
+
+export type CardKycStatus =
+  | 'NOT_STARTED'
+  | 'PENDING'
+  | 'NEEDS_ACTION'
+  | 'IN_REVIEW'
+  | 'APPROVED'
+  | 'DENIED'
+  | 'LOCKED'
+  | 'CANCELED';
+export type CardStatus = 'PENDING' | 'ACTIVE' | 'FROZEN' | 'TERMINATED';
+export type CardType = 'VIRTUAL' | 'PHYSICAL';
+export type CardIncomeRange = '0-1000' | '1000-5000' | '5000-10000' | '10000+';
+
+/** A card provider the app enabled (from GET /cards/providers). Empty = Cards disabled. */
+export interface CardProvider {
+  id: string;
+  name: string;
+  /** What the card face says: the app's label from its dashboard, or "<App>'s card". Absent on older servers. */
+  cardLabel?: string;
+  adapter: string;
+  countries: string[];
+  cardTypes: CardType[];
+  fundingAssets: string[];
+  /** The provider's terms the user accepts before KYC; null while the platform has none loaded. */
+  termsUrl: string | null;
+  supports: { freeze: boolean; terminate: boolean; physical: boolean; revealSecrets: boolean };
+  /** The first platform step the user still owes this provider; null when they may proceed. */
+  requirement: CardRequirementStep | null;
+  /** False when a step the provider requires cannot run (an option gone, KYC off): the provider is closed. */
+  available: boolean;
+}
+
+/** The user's registration with a card provider. */
+export interface CardHolder {
+  id: string;
+  cardProviderId: string;
+  kycStatus: CardKycStatus;
+  kycReason: string | null;
+  /** Hosted page where the user finishes identity verification; null once KYC is settled. */
+  verificationLink: string | null;
+  termsAcceptedAt: string | null;
+  createdAt: string;
+}
+
+export interface CardKycInput {
+  firstName: string;
+  lastName: string;
+  /** YYYY-MM-DD */
+  birthDate: string;
+  nationalId: string;
+  /** ISO 3166-1 alpha-2 of the document. */
+  countryOfIssue: string;
+  email?: string;
+  phoneCountryCode: string;
+  phoneNumber: string;
+  /** A code from {@link PollarClient.getCardOccupations}. */
+  occupation: string;
+  annualSalary: CardIncomeRange;
+  accountPurpose: string;
+  expectedMonthlyVolume: CardIncomeRange;
+  address: { line1: string; line2?: string; city: string; region: string; postalCode: string; countryCode: string };
+}
+
+export interface CardOccupation {
+  code: string;
+  label: string;
+}
+
+export interface CardInfo {
+  id: string;
+  type: CardType;
+  status: CardStatus;
+  last4: string | null;
+  expMonth: string | null;
+  expYear: string | null;
+  nickname: string | null;
+  currency: string;
+  createdAt: string;
+}
+
+/** Credit line as the provider reports it. Cents of USD; `ledgerBalance` in units. */
+export interface CardBalance {
+  creditLimitCents: number | null;
+  spendingPowerCents: number | null;
+  balanceDueCents: number | null;
+  ledgerBalance: string | null;
+  syncedAt: string;
+}
+
+export interface CardTransaction {
+  id: string;
+  cardId: string | null;
+  type: string;
+  direction: 'debit' | 'credit' | null;
+  status: string;
+  amount: string;
+  fee: string | null;
+  currency: string;
+  network: string | null;
+  txHash: string | null;
+  purchaseId: string | null;
+  /** The provider's purchase detail (merchant, local amount, FX) for card spends. */
+  purchase: Record<string, unknown> | null;
+  merchantName: string | null;
+  occurredAt: string;
+}
+
+export interface CardTransactionsPage {
+  transactions: CardTransaction[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+export interface CardDepositAddress {
+  network: string;
+  chainId: number;
+  address: string;
+  tokens: { currency: string | null; tokenAddress: string }[];
+}
+
+/** PAN and CVC decrypted on the device. Never store or log these. */
+export interface CardSecrets {
+  pan: string;
+  cvc: string;
+  last4: string | null;
+  expMonth: string | null;
+  expYear: string | null;
+}
+
+/** Optional on every cards call: which provider, when the app enabled more than one. */
+export type CardProviderParams = { cardProviderId?: string };
+
+export type CardFundingStatus = 'CREATED' | 'BURNED' | 'ATTESTED' | 'MINTED' | 'CREDITED' | 'FAILED';
+
+/**
+ * One transfer from the user's Stellar wallet to the card's collateral. It moves
+ * on its own once paid: CREATED (waiting for the payment) -> BURNED -> ATTESTED
+ * -> MINTED -> CREDITED (the provider booked the deposit). FAILED carries `error`.
+ */
+export interface CardFunding {
+  id: string;
+  status: CardFundingStatus;
+  amount: string;
+  asset: string;
+  depositAddress: string;
+  chainId: number;
+  stellarTxHash: string | null;
+  burnTxHash: string | null;
+  polygonMintTxHash: string | null;
+  providerTxId: string | null;
+  error: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** The first pending platform step of a card provider for this user, as a ramp quote reports a route's. */
+export interface CardRequirementStep {
+  position: number;
+  completed: number;
+  total: number;
+  type: 'KYC' | 'FORM' | 'REGISTRY_CHECK' | 'PROVIDER_REGISTRATION';
+  /** A KYC option, a form, a registry option, or for a registration the card provider. */
+  optionId: string;
+  status: 'none' | 'pending' | 'rejected' | 'expired';
+  reviewReason?: string;
+}
+
+/** A card provider's steps for this app and where the user stands (GET /cards/requirements). */
+export interface CardRequirements {
+  cardProviderId: string;
+  steps: { position: number; type: CardRequirementStep['type']; optionIds: string[]; completed: boolean }[];
+  next: CardRequirementStep | null;
+  completed: number;
+  total: number;
+}
+
+/** A card provider's PROVIDER_REGISTRATION step: status, readiness and what the registration shares. */
+export interface CardProviderRegistration {
+  cardProviderId: string;
+  /**
+   * `incomplete`: a registration was sent and the provider holds the user, but their
+   * KYC did not reach it; registering again sends it.
+   */
+  status: 'none' | 'incomplete' | 'registered';
+  ready: boolean;
+  fields: string[];
+  /** The provider's terms the user accepts by registering; null while the platform has none loaded. */
+  termsUrl: string | null;
+}
+
+export type CardProviderRegistrationSubmitted = Pick<CardProviderRegistration, 'cardProviderId' | 'status'>;
+
+/** Outcome of {@link PollarClient.fundCard}: `cancelled` when the external wallet declined to sign. */
+export type CardFundingOutcome = { status: 'ok'; funding: CardFunding } | { status: 'cancelled'; funding: CardFunding };
 
 // --- Earn types (yield vaults / lending) ---------------------------------------
 

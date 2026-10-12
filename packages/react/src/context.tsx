@@ -45,6 +45,7 @@ import { ReceiveModal } from './components/receive-modal/ReceiveModal';
 import { SendModal } from './components/send-modal/SendModal';
 import { SwapModal } from './components/swap-modal/SwapModal';
 import { EarnModal } from './components/earn-modal/EarnModal';
+import { CardModal } from './components/card-modal/CardModal';
 import { SessionsModal } from './components/sessions-modal/SessionsModal';
 import { TransactionModal } from './components/transaction-modal/TransactionModal';
 import { TxHistoryModal } from './components/tx-history-modal/TxHistoryModal';
@@ -104,6 +105,14 @@ interface PollarContextValue {
   openLoginModal: () => void;
 
   isAuthenticated: boolean;
+  /**
+   * Whether the signed-in user has a wallet. False for an app that creates
+   * wallets on demand until {@link createWallet} runs, and always for one that
+   * creates none.
+   */
+  hasWallet: boolean;
+  /** Create the signed-in user's wallet; see `PollarClient.createWallet`. */
+  createWallet: () => Promise<WalletInfo>;
   /**
    * `true` once the server has confirmed the session (login / refresh /
    * `/auth/session/resume`). `false` while a cold-start session is still
@@ -256,6 +265,13 @@ interface PollarContextValue {
   earnWithdraw: (params: EarnTxParams) => Promise<SubmitOutcome>;
   /** Open the Earn modal. */
   openEarnModal: () => void;
+  // cards
+  /**
+   * Open the Cards modal: sign-up, identity verification, issuing, the card
+   * itself and its activity. The card calls live on {@link PollarClient}
+   * (`getCardProviders`, `issueCard`, `revealCardSecrets`, ...).
+   */
+  openCardModal: () => void;
   // distribution
   openDistributionRulesModal: () => void;
   // adapters
@@ -509,7 +525,7 @@ export function PollarProvider({
             triggered = false;
             return;
           }
-          if (triggered || sessionRef.current?.wallet?.address) return;
+          if (triggered || sessionRef.current) return;
           triggered = true;
           pollarClient.login({ provider: id } as PollarLoginOptions);
         }),
@@ -591,9 +607,36 @@ export function PollarProvider({
   const [sendModalKey, setSendModalKey] = useState(0);
   const [swapModalKey, setSwapModalKey] = useState(0);
   const [earnModalKey, setEarnModalKey] = useState(0);
+  const [cardModalOpen, setCardModalOpen] = useState(false);
+  const [cardModalKey, setCardModalKey] = useState(0);
   const [receiveModalOpen, setReceiveModalOpen] = useState(false);
   const [sessionsModalOpen, setSessionsModalOpen] = useState(false);
   const [distributionRulesModalOpen, setDistributionRulesModalOpen] = useState(false);
+
+  // When the session ends (logout, revoked, ended in another tab) every modal that
+  // acts on it closes, so none keeps the previous user's data on screen; reopening
+  // loads from scratch. Losing the network does not end the session (core keeps it
+  // and retries), so this never fires offline. The login modal stays.
+  useEffect(
+    () =>
+      pollarClient.onAuthStateChange((authState) => {
+        if (authState.step !== 'idle') return;
+        setTransactionModalOpen(false);
+        setKycModalOpen(false);
+        setRampModalOpen(false);
+        setTxHistoryModalOpen(false);
+        setWalletBalanceModalOpen(false);
+        setEnabledAssetsModalOpen(false);
+        setSendModalOpen(false);
+        setSwapModalOpen(false);
+        setEarnModalOpen(false);
+        setCardModalOpen(false);
+        setReceiveModalOpen(false);
+        setSessionsModalOpen(false);
+        setDistributionRulesModalOpen(false);
+      }),
+    [pollarClient],
+  );
 
   // PII (incl. providers.wallet.address) lives on `client.getUserProfile()`, not on the
   // persisted session. For every wallet type, `wallet.address` holds the on-chain
@@ -605,6 +648,9 @@ export function PollarProvider({
   // dependency list moves. Without this, a wallet going from CREATING to READY
   // updates the session and re-renders nothing.
   const walletProvisioning = sessionState?.wallet?.provisioning;
+  // Signed in is having a session: a user of an app that creates wallets on
+  // demand is authenticated before they have an address.
+  const hasSession = sessionState !== null;
   const getClient = useCallback(() => pollarClient, [pollarClient]);
   // refreshBalance resolves the own wallet server-side from the session;
   // walletAddress stays in deps so the callback re-binds when the wallet changes.
@@ -621,7 +667,9 @@ export function PollarProvider({
       // session
       wallet: pollarClient.getWallet(),
       wallets: pollarClient.getWallets(),
-      isAuthenticated: !!walletAddress,
+      isAuthenticated: hasSession,
+      hasWallet: pollarClient.hasWallet(),
+      createWallet: () => pollarClient.createWallet(),
       verified,
       // client
       getClient,
@@ -679,6 +727,11 @@ export function PollarProvider({
         setEarnModalKey((k) => k + 1);
         setEarnModalOpen(true);
       },
+      // cards
+      openCardModal: () => {
+        setCardModalKey((k) => k + 1);
+        setCardModalOpen(true);
+      },
       // sessions
       sessions,
       openSessionsModal: () => setSessionsModalOpen(true),
@@ -705,6 +758,7 @@ export function PollarProvider({
   }, [
     walletAddress,
     walletProvisioning,
+    hasSession,
     verified,
     pollarClient,
     getClient,
@@ -790,6 +844,12 @@ export function PollarProvider({
       {earnModalOpen && (
         <ModalErrorBoundary key={earnModalKey} onClose={() => setEarnModalOpen(false)}>
           <EarnModal onClose={() => setEarnModalOpen(false)} />
+        </ModalErrorBoundary>
+      )}
+      {cardModalOpen && (
+        // Keyed by the wallet too: a different user, or signing in with it open, starts it from scratch.
+        <ModalErrorBoundary key={`${cardModalKey}:${walletAddress}`} onClose={() => setCardModalOpen(false)}>
+          <CardModal onClose={() => setCardModalOpen(false)} />
         </ModalErrorBoundary>
       )}
       {receiveModalOpen && (
