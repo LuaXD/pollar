@@ -1121,6 +1121,8 @@ export interface PollarAdapters {
 export type RampAction = NonNullable<RampsTransactionResponse['nextAction']>;
 export type RampTerms = NonNullable<RampsTransactionResponse['terms']>;
 export type RampRoute = NonNullable<RampQuote['route']>;
+/** Closed ramp chain catalog, independent of wallet custody support. */
+export type RampChain = RampRoute['asset']['chain'];
 export type RampCapabilities = RampsRoutesResponse['routes'][number]['capabilities'];
 export type RampsRoutesResponse =
   pollarPaths['/ramps/routes']['get']['responses'][200]['content']['application/json']['content'];

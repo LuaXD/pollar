@@ -641,7 +641,7 @@ test('a native replacement quote shows exact changed totals and requires another
   );
 });
 
-test('registered future-chain route drives the native widget and resumes without signing again', async () => {
+test('registered Polygon route drives the native widget and resumes without signing again', async () => {
   const core = jest.requireActual('@pollar/core');
   const client = fakeClient();
   client.auth = { step: 'authenticated', verified: true, session: { clientSessionId: 'fixture-session' } };
@@ -650,8 +650,8 @@ test('registered future-chain route drives the native widget and resumes without
     direction: 'offramp',
     country: 'PE',
     fiatCurrency: 'PEN',
-    rail: 'FUTURE_BANK',
-    asset: { code: 'NATIVE', identifier: null, chain: 'FUTURE_CHAIN', network: 'mainnet', precision: 12 },
+    rail: 'ACH',
+    asset: { code: 'NATIVE', identifier: null, chain: 'POLYGON', network: 'mainnet', precision: 12 },
     limits: { denomination: 'crypto', min: '0.000000000001', max: '100' },
     providerId: 'fixture-provider',
     provider: 'Registered fixture',
@@ -672,13 +672,13 @@ test('registered future-chain route drives the native widget and resumes without
       feeCurrency: 'PEN',
       assetCode: 'NATIVE',
       assetIssuer: null,
-      assetChain: 'FUTURE_CHAIN',
+      assetChain: 'POLYGON',
     },
     nextAction: {
       kind: 'sign_transaction',
       actionId: 'fixture-action',
       purpose: 'withdrawal_payment',
-      chain: 'FUTURE_CHAIN',
+      chain: 'POLYGON',
       network: 'mainnet',
       challengeRef: 'fixture-step',
       payload: { encoding: 'fixture-json', value: 'unsigned' },
@@ -691,7 +691,7 @@ test('registered future-chain route drives the native widget and resumes without
       {
         quoteId: 'fixture-quote',
         provider: 'Registered fixture',
-        rail: 'FUTURE_BANK',
+        rail: 'ACH',
         requiredFields: [],
         fiatAmount: 20,
         terms: transaction.terms,
@@ -708,7 +708,7 @@ test('registered future-chain route drives the native widget and resumes without
   client._rampSigners = new core.RampSigningRegistry();
   client.signRampAction = core.PollarClient.prototype.signRampAction;
   const signer = jest.fn(async () => 'signed:unsigned');
-  core.PollarClient.prototype.registerRampSigningHandler.call(client, 'FUTURE_CHAIN', 'fixture-json', signer);
+  core.PollarClient.prototype.registerRampSigningHandler.call(client, 'POLYGON', 'fixture-json', signer);
   const view = await renderAsync(
     <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
       <RampPanel key="first" />
@@ -719,7 +719,7 @@ test('registered future-chain route drives the native widget and resumes without
   fireEvent.changeText(view.getByLabelText('Amount'), '20');
   await act(async () => fireEvent.press(view.getByText('Get ramp quotes')));
   expect(client.getRampsQuote).toHaveBeenCalledWith(
-    expect.objectContaining({ chain: 'FUTURE_CHAIN', routeId: route.routeId, currency: 'PEN' }),
+    expect.objectContaining({ chain: 'POLYGON', routeId: route.routeId, currency: 'PEN' }),
   );
   fireEvent.press(view.getByText('Select Registered fixture'));
   await act(async () => fireEvent.press(view.getByText('Confirm offramp')));

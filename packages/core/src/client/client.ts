@@ -1,5 +1,5 @@
 import { RampSigningRegistry, type RampSigningHandler, type RampSnapshot } from '../ramps/workflow';
-import type { RampContinuationBody } from '../types';
+import type { RampChain, RampContinuationBody } from '../types';
 import { createApiClient, fetchWithTimeout, PollarApiClient } from '../api/client';
 import { claimDistributionRule, listDistributionRules } from '../api/endpoints/distribution';
 import { getSwapConfig, getSwapTokens, quoteSwap } from '../api/endpoints/swap';
@@ -3319,7 +3319,7 @@ export class PollarClient {
   continueRamp(txId: string, body: RampContinuationBody) {
     return continueRamp(this._api, txId, body);
   }
-  registerRampSigningHandler(chain: string, encoding: string, handler: RampSigningHandler) {
+  registerRampSigningHandler(chain: RampChain, encoding: string, handler: RampSigningHandler) {
     return this._rampSigners.register(chain, encoding, handler);
   }
   /** Explicit user action only. Reading/restoring a workflow never invokes this. */

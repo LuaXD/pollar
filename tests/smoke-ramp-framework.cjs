@@ -12,7 +12,7 @@ const snapshot = {
     fiatCurrency: 'PEN',
     cryptoAmount: '1.123456789012',
     assetCode: 'NATIVE',
-    assetChain: 'FUTURE_CHAIN',
+    assetChain: 'POLYGON',
     assetIssuer: null,
     feeAmount: '0',
     feeCurrency: 'PEN',
@@ -21,7 +21,7 @@ const snapshot = {
     kind: 'sign_transaction',
     actionId: 'fixture-action',
     purpose: 'withdrawal_payment',
-    chain: 'FUTURE_CHAIN',
+    chain: 'POLYGON',
     network: 'mainnet',
     challengeRef: 'fixture-challenge',
     payload: { encoding: 'fixture-json', value: 'fixture-unsigned' },
@@ -87,7 +87,12 @@ const snapshot = {
   await client.getRampTransaction(snapshot.txId);
   assert.equal(signs, 0);
   await assert.rejects(client.signRampAction(snapshot.txId, snapshot), /Register a ramp signing handler/);
-  client.registerRampSigningHandler('FUTURE_CHAIN', 'fixture-json', async (action) => {
+  for (const unknown of ['FUTURE_CHAIN', 'polygon', 'ETHEREUM', ''])
+    assert.throws(
+      () => client.registerRampSigningHandler(unknown, 'fixture-json', async () => 'signed'),
+      /Unsupported ramp chain/,
+    );
+  client.registerRampSigningHandler('POLYGON', 'fixture-json', async (action) => {
     assert.equal(action.payload.value, 'fixture-unsigned');
     signs++;
     return 'fixture-signed';
@@ -117,7 +122,7 @@ const snapshot = {
   await endpoints.continueRamp(api, snapshot.txId, { actionId: 'fixture-action', transactionVersion: 2 });
   assert.equal(calls[2][0], '/ramps/transaction/{txId}/continue');
   console.log(
-    'Ramp SDK: future-chain signing, explicit continuation, stale versions, verification and read-only restoration passed.',
+    'Ramp SDK: registered Polygon signing, explicit continuation, stale versions, verification and read-only restoration passed.',
   );
 })().catch((error) => {
   console.error(error);
@@ -129,7 +134,28 @@ const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwM
 assert.equal(safeRampPng(png), 'data:image/png;base64,' + png);
 assert.equal(safeRampPng('data:image/svg+xml;base64,PHN2Zz4='), null);
 assert.equal(safeRampPng('iVBORw0KGgo<script>'), null);
-const replacement = { quoteId: 'replacement', expiresAt: new Date(Date.now() + 900000).toISOString(), terms: { fiatAmount: '110', cryptoAmount: '10.04' }, route: { routeId: 'route' } };
-assert.equal(rampReplacementQuote(new PollarApiError('SDK_RAMPS_QUOTE_CHANGED', { replacementQuote: replacement })), replacement);
-assert.equal(rampReplacementQuote(new PollarApiError('SDK_RAMPS_QUOTE_EXPIRED', { details: 'QUOTE_CHANGED:request_fresh_quote', replacementQuote: replacement })), replacement);
-assert.equal(rampReplacementQuote(new PollarApiError('SDK_RAMPS_QUOTE_CHANGED', { replacementQuote: { ...replacement, expiresAt: '2000-01-01' } })), null);
+const replacement = {
+  quoteId: 'replacement',
+  expiresAt: new Date(Date.now() + 900000).toISOString(),
+  terms: { fiatAmount: '110', cryptoAmount: '10.04' },
+  route: { routeId: 'route' },
+};
+assert.equal(
+  rampReplacementQuote(new PollarApiError('SDK_RAMPS_QUOTE_CHANGED', { replacementQuote: replacement })),
+  replacement,
+);
+assert.equal(
+  rampReplacementQuote(
+    new PollarApiError('SDK_RAMPS_QUOTE_EXPIRED', {
+      details: 'QUOTE_CHANGED:request_fresh_quote',
+      replacementQuote: replacement,
+    }),
+  ),
+  replacement,
+);
+assert.equal(
+  rampReplacementQuote(
+    new PollarApiError('SDK_RAMPS_QUOTE_CHANGED', { replacementQuote: { ...replacement, expiresAt: '2000-01-01' } }),
+  ),
+  null,
+);

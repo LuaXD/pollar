@@ -229,6 +229,7 @@ Frontend components and operational screens are specified as consumers of the ad
 These declarations match the local DEV-8/DEV-10 framework. This is not a published release or a claim that all providers are migrated. Internal provider observations and credentials are not frontend authority. `RampAction`, `RampTerms`, `RampRoute` and continuation types in the public library are generated from the matching backend OpenAPI schema.
 
 ```ts
+type RampChain = 'STELLAR' | 'POLYGON' | 'SOLANA';
 type LifecycleTerms = {
   fiatCurrency: string;
   fiatAmount: string;
@@ -236,7 +237,7 @@ type LifecycleTerms = {
   feeAmount: string;
   feeCurrency: string;
   assetCode: string;
-  assetChain: string;
+  assetChain: RampChain;
   assetIssuer: string | null;
 };
 
@@ -249,7 +250,7 @@ export type Route = {
   country: string;
   fiatCurrency: string;
   rail: string;
-  asset: { code: string; identifier: string | null; chain: string; network: string; precision: number };
+  asset: { code: string; identifier: string | null; chain: RampChain; network: string; precision: number };
   limits: { denomination: 'fiat' | 'crypto'; min: Decimal | null; max: Decimal | null };
 };
 export type UserContext = {
@@ -257,7 +258,7 @@ export type UserContext = {
   sdkUserId: string;
   providerId: string;
   configurationId: string;
-  wallet: { address: string; chain: string; network: 'testnet' | 'mainnet'; custody: 'custodial' | 'external' };
+  wallet: { address: string; chain: RampChain; network: 'testnet' | 'mainnet'; custody: 'custodial' | 'external' };
 };
 export type RequiredField = {
   key: string;
@@ -304,7 +305,7 @@ export type Action =
     }
   | {
       kind: 'chain_transfer';
-      chain: string;
+      chain: RampChain;
       network: string;
       asset: Route['asset'];
       amount: Decimal;
@@ -314,7 +315,7 @@ export type Action =
   | {
       kind: 'sign_transaction';
       purpose: 'authentication' | 'withdrawal_payment' | 'onramp_claim';
-      chain: string;
+      chain: RampChain;
       network: string;
       challengeRef: string;
       payload: { encoding: string; value: string };
@@ -371,7 +372,7 @@ export class AdapterError extends Error {
   }
 }
 export type Payment = {
-  chain: string;
+  chain: RampChain;
   network: string;
   assetCode: string;
   identifier: string | null;
@@ -384,7 +385,7 @@ export type Payment = {
 export type ProviderFact =
   | { kind: 'provider_processing' }
   | { kind: 'fiat_receipt_reported' | 'fiat_payout_reported'; reference: string | null }
-  | { kind: 'chain_transaction_reported'; chain: string; hash: string; leg: 'source' | 'intermediate' | 'destination' }
+  | { kind: 'chain_transaction_reported'; chain: RampChain; hash: string; leg: 'source' | 'intermediate' | 'destination' }
   | { kind: 'provider_rejection_reported' };
 export type Observation = {
   providerOrderRef: string | null;
