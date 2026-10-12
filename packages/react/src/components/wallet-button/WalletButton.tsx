@@ -1,5 +1,6 @@
 'use client';
 
+import { isPollarApiError } from '@pollar/core';
 import { useEffect, useRef, useState } from 'react';
 import { usePollar } from '../../context';
 import { walletNotReadyReason } from '../../lib/wallet-provisioning';
@@ -22,6 +23,9 @@ export function WalletButton() {
     openRampModal,
     openDistributionRulesModal,
     tx: transaction,
+    isAuthenticated,
+    createWallet,
+    appConfig,
   } = usePollar();
   // The address shown (and copied) is the one on the app's FIRST configured
   // chain, not `wallet.address` - that field is the Stellar wallet by definition
@@ -34,6 +38,8 @@ export function WalletButton() {
   const [copied, setCopied] = useState(false);
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState(false);
+  const [creatingWallet, setCreatingWallet] = useState(false);
+  const [createWalletError, setCreateWalletError] = useState<string | null>(null);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isInProgress = transaction.step === 'building' || transaction.step === 'signing';
@@ -110,6 +116,24 @@ export function WalletButton() {
     }
   }
 
+  async function handleCreateWallet() {
+    if (creatingWallet) return;
+    setCreatingWallet(true);
+    setCreateWalletError(null);
+    try {
+      await createWallet();
+      setOpen(false);
+    } catch (err) {
+      setCreateWalletError(
+        isPollarApiError(err) && err.code === 'SDK_WALLET_PROVISIONING_DISABLED'
+          ? 'This app does not create wallets.'
+          : 'Could not create the wallet. Try again.',
+      );
+    } finally {
+      setCreatingWallet(false);
+    }
+  }
+
   function handleWalletBalance() {
     setOpen(false);
     openWalletBalanceModal();
@@ -162,6 +186,10 @@ export function WalletButton() {
       wrapperRef={wrapperRef}
       isInProgress={isInProgress}
       showCreateAccount={canCreateAccount}
+      signedIn={isAuthenticated}
+      creatingWallet={creatingWallet}
+      createWalletError={createWalletError}
+      {...(appConfig.application?.walletProvisioning === 'NONE' ? {} : { onCreateWallet: handleCreateWallet })}
       notReadyReason={notReadyReason}
       creatingAccount={creating}
       onToggleOpen={() => setOpen((v) => !v)}

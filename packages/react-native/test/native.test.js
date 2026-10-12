@@ -51,6 +51,7 @@ function fakeClient() {
   client.getWallet = () =>
     client.auth.step === 'authenticated' ? { custody: 'internal', address: 'GTEST', provider: 'email' } : null;
   client.getWallets = () => (client.getWallet() ? [client.getWallet()] : []);
+  client.hasWallet = () => client.getWallets().length > 0;
   client.getWalletType = () => null;
   client.getNetwork = () => 'testnet';
   client.getWalletBalanceState = () => client.balance;
@@ -58,6 +59,7 @@ function fakeClient() {
     client[name] = () => ({ step: 'idle' });
   for (const name of [
     'login',
+    'createWallet',
     'buildTx',
     'signAndSubmitTx',
     'signTx',
@@ -131,6 +133,62 @@ function Probe() {
   );
 }
 beforeEach(() => jest.clearAllMocks());
+
+test('a signed-in user without a wallet can create a Solana wallet through native context', async () => {
+  const client = fakeClient();
+  client.auth = { step: 'authenticated', verified: true, session: { clientSessionId: 'walletless' } };
+  client.getWallet = () => null;
+  let wallets = [];
+  client.getWallets = () => wallets;
+  const wallet = { chain: 'SOLANA', address: 'solana-fixture', custody: 'internal' };
+  client.createWallet.mockImplementation(async () => {
+    wallets = [wallet];
+    client.emit('Auth');
+    return wallet;
+  });
+  function WalletProbe() {
+    const p = usePollar();
+    return (
+      <>
+        <Text>{`signed in: ${p.isAuthenticated}, wallet: ${p.hasWallet}`}</Text>
+        <ActionButton title="Create wallet" onPress={() => void p.createWallet()} />
+      </>
+    );
+  }
+  const view = await renderAsync(
+    <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
+      <WalletProbe />
+    </PollarProvider>,
+  );
+  expect(view.getByText('signed in: true, wallet: false')).toBeTruthy();
+  await act(async () => fireEvent.press(view.getByText('Create wallet')));
+  expect(client.createWallet).toHaveBeenCalledTimes(1);
+  expect(view.getByText('signed in: true, wallet: true')).toBeTruthy();
+  expect(client.getWallet()).toBeNull();
+});
+
+test('native cards opener renders the cards modal and clears it when the session ends', async () => {
+  const client = fakeClient();
+  client.auth = { step: 'authenticated', verified: true, session: { clientSessionId: 'cards' } };
+  client.getCardProviders = jest.fn(async () => []);
+  function CardsProbe() {
+    const p = usePollar();
+    return <ActionButton title="Open cards" onPress={p.openCardModal} />;
+  }
+  const view = await renderAsync(
+    <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
+      <CardsProbe />
+    </PollarProvider>,
+  );
+  await act(async () => fireEvent.press(view.getByText('Open cards')));
+  await waitFor(() => expect(view.getByText('Cards are not available for this app.')).toBeTruthy());
+  expect(client.getCardProviders).toHaveBeenCalled();
+  await act(async () => {
+    client.auth = { step: 'idle' };
+    client.emit('Auth');
+  });
+  expect(view.queryByText('Cards are not available for this app.')).toBeNull();
+});
 
 test('earn provider changes clear old opportunities and block choices during loading', async () => {
   const client = fakeClient();

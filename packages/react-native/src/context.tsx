@@ -14,6 +14,7 @@ import type { FeatureName } from './components/FeaturePanel';
 import { FeatureModal } from './components/FeatureModal';
 import { ModalErrorBoundary } from './components/commons';
 import { AppKycFlow } from './components/kyc-modal/AppKycFlow';
+import { CardModal } from './components/card-modal/CardModal';
 import { LoginModal } from './components/login-modal/LoginModal';
 import { RampWidget } from './components/ramp-widget/RampWidget';
 import { TransactionModal } from './components/transaction-modal/TransactionModal';
@@ -40,6 +41,7 @@ export interface PollarProviderProps {
 }
 const methods = [
   'login',
+  'createWallet',
   'buildTx',
   'signAndSubmitTx',
   'signTx',
@@ -82,6 +84,7 @@ type ModalMethods =
   | 'openKycModal'
   | 'openRampModal'
   | 'openRampWidget'
+  | 'openCardModal'
   | 'openTxHistoryModal'
   | 'openWalletBalanceModal'
   | 'openEnabledAssetsModal'
@@ -104,6 +107,8 @@ export type PollarContextValue = Methods &
     authState: AuthState;
     verified: boolean;
     isAuthenticated: boolean;
+    /** Whether the signed-in user has a wallet on any chain. */
+    hasWallet: boolean;
     logout: () => Promise<void>;
     network: ReturnType<PollarClient['getNetwork']>;
     setNetwork: PollarClient['setNetwork'];
@@ -202,7 +207,7 @@ function ClientProvider({
 }) {
   const client = runtime.client;
   const [, update] = useState(0);
-  const [modal, setModal] = useState<FeatureName | null>(null);
+  const [modal, setModal] = useState<FeatureName | 'cards' | null>(null);
   const [kycOptions, setKycOptions] = useState<{
     country?: string;
     level?: 'basic' | 'intermediate' | 'enhanced';
@@ -265,7 +270,7 @@ function ClientProvider({
   }, [auth.step]);
   const wallet = client.getWallet();
   const tx = client.getTransactionState() ?? { step: 'idle' as const };
-  const open = (next: FeatureName) => {
+  const open = (next: FeatureName | 'cards') => {
     if (modal === 'authentication' && next !== modal) client.cancelLogin();
     setModal(next);
   };
@@ -290,6 +295,7 @@ function ClientProvider({
     walletType: client.getWalletType(),
     authState: auth,
     isAuthenticated: auth.step === 'authenticated',
+    hasWallet: client.hasWallet(),
     verified: auth.step === 'authenticated' && auth.verified,
     logout: async () => {
       client.cancelLogin();
@@ -353,6 +359,7 @@ function ClientProvider({
     },
     openRampModal: () => open('ramp'),
     openRampWidget: () => open('ramp'),
+    openCardModal: () => open('cards'),
     openSwapModal: () => open('swap'),
     openEarnModal: () => open('earn'),
     openDistributionRulesModal: () => open('distribution'),
@@ -369,6 +376,8 @@ function ClientProvider({
               <AppKycFlow onClose={close} {...kycOptions} />
             ) : modal === 'ramp' ? (
               <RampWidget onClose={close} />
+            ) : modal === 'cards' ? (
+              <CardModal key={wallet?.address ?? ''} onClose={close} />
             ) : modal === 'transactions' ? (
               <TransactionModal onClose={close} />
             ) : modal === 'history' ? (

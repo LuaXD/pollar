@@ -5,6 +5,28 @@ import { createApiClient, fetchWithTimeout, PollarApiClient } from '../api/clien
 import { claimDistributionRule, listDistributionRules } from '../api/endpoints/distribution';
 import { getSwapConfig, getSwapTokens, quoteSwap } from '../api/endpoints/swap';
 import { buildEarnTx, getEarnOpportunities, getEarnPosition, getEarnProviders } from '../api/endpoints/earn';
+import {
+  createCardFunding,
+  createCardHolder,
+  getCardProviderRegistration,
+  getCardRequirements,
+  submitCardProviderRegistration,
+  getCardBalance,
+  getCardDepositAddresses,
+  getCardFunding,
+  getCardHolder,
+  getCardOccupations,
+  getCardProviders,
+  getCards,
+  getCardSecrets,
+  getCardSecretsPublicKey,
+  getCardTransactions,
+  issueCard,
+  listCardFundings,
+  submitCardFundingSignature,
+  submitCardKyc,
+} from '../api/endpoints/cards';
+import { createCardSecretsSession, openCardSecrets } from '../lib/card-secrets';
 import { getKycProviders, getKycStatus, pollKycDecision, pollKycStatus, resolveKyc, startKyc } from '../api/endpoints/kyc';
 import {
   getAppRequirements,
@@ -59,6 +81,21 @@ import {
   EarnPosition,
   EarnPositionParams,
   EarnTxParams,
+  CardBalance,
+  CardDepositAddress,
+  CardFunding,
+  CardFundingOutcome,
+  CardHolder,
+  CardInfo,
+  CardKycInput,
+  CardOccupation,
+  CardProvider,
+  CardProviderParams,
+  CardProviderRegistration,
+  CardProviderRegistrationSubmitted,
+  CardRequirements,
+  CardSecrets,
+  CardTransactionsPage,
   EnabledAssetRecord,
   EnabledAssetsState,
   KycLevel,
@@ -125,6 +162,8 @@ import {
   WalletBalanceRecord,
   WalletBalanceState,
   WalletChain,
+  PollarApiError,
+  WALLET_REQUIRED_CODE,
   WalletInfo,
   WalletProvisioning,
 } from '../types';
@@ -274,6 +313,25 @@ function warnServerSide(method: string): void {
   console.warn(
     `[PollarClient] ${method}() called server-side — browser APIs unavailable. Use PollarClient only in Client Components.`,
   );
+}
+
+/** The wire wallet (login, `/wallet/provision`) in its persisted shape. */
+function toPersistedWallet(w: PollarApplicationConfigContent['wallet']): PollarPersistedWallet {
+  return {
+    type: w.type,
+    // `provider` (the login method) was added to the wire after the generated
+    // OpenAPI types were last cut, so read it defensively until they're regen'd.
+    ...((w as { provider?: string }).provider ? { provider: (w as { provider?: string }).provider as string } : {}),
+    address: w.address ?? w.publicKey ?? null,
+    ...(w.chain !== undefined ? { chain: w.chain } : {}),
+    ...(w.existsOnStellar !== undefined ? { existsOnStellar: w.existsOnStellar } : {}),
+    ...(w.provisioning !== undefined ? { provisioning: w.provisioning } : {}),
+    ...(w.fundingMode !== undefined ? { fundingMode: w.fundingMode } : {}),
+    ...(w.createdAt !== undefined ? { createdAt: w.createdAt } : {}),
+    ...(w.linkedAt !== undefined ? { linkedAt: w.linkedAt } : {}),
+    ...(w.network !== undefined ? { network: w.network } : {}),
+    ...(w.deployTxHash !== undefined ? { deployTxHash: w.deployTxHash } : {}),
+  };
 }
 
 export class PollarClient {
@@ -2641,10 +2699,68 @@ export class PollarClient {
   }
 
   /**
+   * Whether the signed-in user has a wallet on any chain. False for an app that
+   * creates wallets on demand (or never) until {@link createWallet} runs. Not the
+   * same as `getWallet() !== null`: a Solana login has a wallet but no Stellar one.
+   */
+  hasWallet(): boolean {
+    return this.getWallets().length > 0;
+  }
+
+  /**
+   * Create the signed-in user's wallet, for an app whose wallet creation is set
+   * to "on demand" in the dashboard. Idempotent: a user who already has one gets
+   * it back. Updates the session and notifies subscribers the way a login does.
+   *
+   * Throws {@link PollarApiError}: `SDK_WALLET_PROVISIONING_DISABLED` when the
+   * app creates no wallets, `SDK_WALLET_PROVISIONING_UNSUPPORTED` for a user who
+   * signed in with their own wallet or a passkey.
+   */
+  async createWallet(): Promise<WalletInfo> {
+    if (!this._session) throw new PollarApiError('SDK_AUTH_INVALID_TOKEN');
+    const gen = this._sessionGeneration;
+    const { data, error } = await this._api.POST('/wallet/provision');
+    const content = data?.content;
+    if (error || !content) {
+      const body = (typeof error === 'object' && error !== null ? error : {}) as Record<string, unknown>;
+      throw new PollarApiError(typeof body.code === 'string' ? body.code : 'SDK_WALLET_PROVISIONING_FAILED', body);
+    }
+    if (this._destroyed || this._sessionGeneration !== gen || !this._session) {
+      throw new PollarApiError('SDK_AUTH_INVALID_TOKEN');
+    }
+
+    this._session = {
+      ...this._session,
+      wallet: toPersistedWallet(content.wallet),
+      wallets: content.wallets.map(toPersistedWallet),
+    };
+    try {
+      await this._persistSession(gen, this._session);
+    } catch (err) {
+      this._log.error('[PollarClient] Failed to persist the created wallet', err);
+    }
+    if (this._authState.step === 'authenticated') {
+      this._setAuthState({ ...this._authState, session: this._session });
+    }
+    const provisioning = this._session.wallet.provisioning;
+    if (provisioning) this._dispatchWalletState(provisioning);
+    this._startProvisioningWatch();
+
+    const wallet = this.getWallet();
+    if (!wallet) throw new PollarApiError('SDK_WALLET_PROVISIONING_FAILED');
+    return wallet;
+  }
+
+  /**
    * Maps a persisted wallet to the public {@link WalletInfo} union. Shared by
    * `getWallet` and `getWallets` so the two can never disagree about how a
    * given custody is presented.
    */
+  /** The outcome a signing call returns for a user with no wallet yet. */
+  private _walletRequired(): { status: 'error'; code: string; details: string } {
+    return { status: 'error', code: WALLET_REQUIRED_CODE, details: 'This user has no wallet yet. Call createWallet().' };
+  }
+
   private _toWalletInfo(w: PollarPersistedWallet | undefined, opts: { includeChain: boolean }): WalletInfo | null {
     if (!w || !w.address) return null;
     // Wallet-status extras carried on every custody (see WalletInfo).
@@ -2749,7 +2865,8 @@ export class PollarClient {
     // default the backend also applies sponsorship (per the app's dashboard
     // config), returning a fee-bumped envelope the caller can broadcast directly
     // - the app pays the fee. Pass `skipSponsorship` to force the user to pay.
-    const address = this._session?.wallet?.address ?? '';
+    const address = this._session?.wallet?.address;
+    if (!address) return this._walletRequired();
     try {
       const { data, error } = await this._api.POST('/tx/sign', {
         body: { address, unsignedXdr, ...(options?.skipSponsorship && { skipSponsorship: true }) },
@@ -2846,7 +2963,8 @@ export class PollarClient {
     }
 
     // Embedded path: backend enforces the app's auth-entry policy, then signs.
-    const address = this._session?.wallet?.address ?? '';
+    const address = this._session?.wallet?.address;
+    if (!address) return this._walletRequired();
     try {
       const { data, error } = await this._api.POST('/tx/sign-auth-entry', {
         body: { address, entryXdr, validUntilLedger: options.validUntilLedger },
@@ -2880,7 +2998,8 @@ export class PollarClient {
     if (this._session?.wallet?.type === 'smart') {
       return { status: 'error', details: 'SEP-53 message signing is not supported for smart (passkey) wallets.' };
     }
-    const address = this._session?.wallet?.address ?? '';
+    const address = this._session?.wallet?.address;
+    if (!address) return this._walletRequired();
 
     // External adapter signs directly (smart already returned above).
     if (this._walletAdapter) {
@@ -2937,7 +3056,8 @@ export class PollarClient {
         details: 'SEP-10 is for classic accounts; smart (passkey) wallets cannot sign a SEP-10 challenge.',
       };
     }
-    const address = this._session?.wallet?.address ?? '';
+    const address = this._session?.wallet?.address;
+    if (!address) return this._walletRequired();
 
     if (this._walletAdapter) {
       if (!this._walletAdapter.signTransaction) {
@@ -3670,32 +3790,40 @@ export class PollarClient {
 
   // --- KYC ------------------------------------------------------------------
 
-  getKycStatus(providerId?: string, corridorId?: string) {
-    return getKycStatus(this._api, providerId, corridorId);
+  /** With `corridorId` or `cardProviderId` the read is scoped to that route's or provider's steps. */
+  getKycStatus(providerId?: string, corridorId?: string, cardProviderId?: string) {
+    return getKycStatus(this._api, providerId, corridorId, cardProviderId);
   }
 
-  getKycProviders(country: string, corridorId?: string) {
-    return getKycProviders(this._api, country, corridorId);
+  getKycProviders(country: string, corridorId?: string, cardProviderId?: string) {
+    return getKycProviders(this._api, country, corridorId, cardProviderId);
   }
 
-  startKyc(body: KycStartBody): Promise<KycStartResponse> {
+  startKyc(body: KycStartBody & { cardProviderId?: string }): Promise<KycStartResponse> {
     return startKyc(this._api, body);
   }
 
-  resolveKyc(providerId: string, level?: KycLevel, country?: string, corridorId?: string, idempotencyKey?: string) {
-    return resolveKyc(this._api, providerId, level, country, corridorId, idempotencyKey);
+  resolveKyc(
+    providerId: string,
+    level?: KycLevel,
+    country?: string,
+    corridorId?: string,
+    idempotencyKey?: string,
+    cardProviderId?: string,
+  ) {
+    return resolveKyc(this._api, providerId, level, country, corridorId, idempotencyKey, cardProviderId);
   }
 
   pollKycDecision(
     providerId: string,
-    opts?: { intervalMs?: number; timeoutMs?: number; corridorId?: string },
+    opts?: { intervalMs?: number; timeoutMs?: number; corridorId?: string; cardProviderId?: string },
   ): Promise<KycStatusContent> {
     return pollKycDecision(this._api, providerId, opts);
   }
 
   pollKycStatus(
     providerId: string,
-    opts?: { intervalMs?: number; timeoutMs?: number; corridorId?: string },
+    opts?: { intervalMs?: number; timeoutMs?: number; corridorId?: string; cardProviderId?: string },
   ): Promise<KycStatus> {
     return pollKycStatus(this._api, providerId, opts);
   }
@@ -4005,6 +4133,133 @@ export class PollarClient {
     // runTx (re-simulated server-side), mirroring swap.
     if ('unsignedXdr' in build) return this.signAndSubmitTx(build.unsignedXdr);
     return this.runTx(build.operation, build.params);
+  }
+
+  // --- Cards -------------------------------------------------------------------
+
+  /**
+   * The card providers this app enabled on its network. An empty array means
+   * Cards is off for this app - hide any card UI. `cardProviderId` can be left
+   * out of every other cards call while there is exactly one.
+   */
+  async getCardProviders(): Promise<CardProvider[]> {
+    return (await getCardProviders(this._api)).providers;
+  }
+
+  /**
+   * The platform's steps before the provider's own onboarding (KYC, forms, registry
+   * checks, registration) and where the user stands. Complete a KYC step with
+   * {@link resolveKyc} passing `cardProviderId`, a form with {@link submitRequirementForm},
+   * a registry check with {@link submitRegistryCheck}, a registration with
+   * {@link submitCardProviderRegistration}.
+   */
+  async getCardRequirements(params: CardProviderParams = {}): Promise<CardRequirements> {
+    return getCardRequirements(this._api, params.cardProviderId);
+  }
+
+  /** The provider registration step: whether the user is registered, can be now, and what is shared. */
+  getCardProviderRegistration(cardProviderId: string): Promise<CardProviderRegistration> {
+    return getCardProviderRegistration(this._api, cardProviderId);
+  }
+
+  /** The user's consent: signs them up with the card provider from the verified identity and form answers. */
+  submitCardProviderRegistration(cardProviderId: string): Promise<CardProviderRegistrationSubmitted> {
+    return submitCardProviderRegistration(this._api, cardProviderId);
+  }
+
+  /** The user's registration with the provider, or null before {@link createCardHolder}. */
+  async getCardHolder(params: CardProviderParams = {}): Promise<CardHolder | null> {
+    return (await getCardHolder(this._api, params.cardProviderId)).holder;
+  }
+
+  /**
+   * Register the user with the card provider. Name and email default to the
+   * profile the session carries; pass them when the app collects its own.
+   */
+  async createCardHolder(
+    params: CardProviderParams & { firstName?: string; lastName?: string; email?: string } = {},
+  ): Promise<CardHolder> {
+    return (await createCardHolder(this._api, params)).holder;
+  }
+
+  /**
+   * Send the user's identity data to the provider. `termsAccepted` must be true:
+   * the provider's terms (see `CardProvider.termsUrl`) are shown by the app.
+   * The returned holder carries the `verificationLink` the user opens to finish.
+   */
+  async submitCardKyc(params: CardProviderParams & { termsAccepted: boolean; kyc: CardKycInput }): Promise<CardHolder> {
+    return (await submitCardKyc(this._api, params)).holder;
+  }
+
+  /** Occupation codes the KYC form accepts. */
+  async getCardOccupations(params: CardProviderParams = {}): Promise<CardOccupation[]> {
+    return (await getCardOccupations(this._api, params.cardProviderId)).occupations;
+  }
+
+  /** The user's cards. Never includes card numbers; see {@link revealCardSecrets}. */
+  async getCards(params: CardProviderParams = {}): Promise<CardInfo[]> {
+    return (await getCards(this._api, params.cardProviderId)).cards;
+  }
+
+  /** Issue a virtual card. Needs an approved KYC. */
+  async issueCard(
+    params: CardProviderParams & { nickname?: string; limit?: { amount: number; frequency: string } } = {},
+  ): Promise<CardInfo> {
+    return (await issueCard(this._api, params)).card;
+  }
+
+  /** Credit limit, spending power and balance due, read live from the provider. */
+  async getCardBalance(params: CardProviderParams = {}): Promise<CardBalance | null> {
+    return (await getCardBalance(this._api, params.cardProviderId)).balance;
+  }
+
+  /** Deposits, purchases and fees, newest first. */
+  async getCardTransactions(
+    params: CardProviderParams & { cardId?: string; limit?: number; offset?: number } = {},
+  ): Promise<CardTransactionsPage> {
+    return getCardTransactions(this._api, params);
+  }
+
+  /** Where the card's collateral is deposited, one address per network the provider accepts. */
+  async getCardDepositAddresses(params: CardProviderParams = {}): Promise<CardDepositAddress[]> {
+    return (await getCardDepositAddresses(this._api, params.cardProviderId)).depositAddresses;
+  }
+
+  /**
+   * Move USDC from the user's Stellar wallet to the card's collateral. A
+   * custodial wallet pays at once; an external wallet is asked to sign the
+   * payment here, and `cancelled` means it declined. The returned funding then
+   * advances on its own; follow it with {@link getCardFunding}.
+   */
+  async fundCard(params: CardProviderParams & { amount: string }): Promise<CardFundingOutcome> {
+    const started = await createCardFunding(this._api, params);
+    if (!started.pendingSignature) return { status: 'ok', funding: started.funding };
+    const signed = await this.signTx(started.pendingSignature.unsignedXdr);
+    if (signed.status !== 'signed') return { status: 'cancelled', funding: started.funding };
+    const { funding } = await submitCardFundingSignature(this._api, started.funding.id, { signedXdr: signed.signedXdr });
+    return { status: 'ok', funding };
+  }
+
+  async getCardFunding(fundingId: string): Promise<CardFunding> {
+    return (await getCardFunding(this._api, fundingId)).funding;
+  }
+
+  /** The user's fundings, newest first. */
+  async listCardFundings(params: CardProviderParams = {}): Promise<CardFunding[]> {
+    return (await listCardFundings(this._api, params.cardProviderId)).fundings;
+  }
+
+  /**
+   * The full card number and CVC, decrypted on this device with a one-shot key
+   * the server never sees. Show them and drop them: never store or log the
+   * result. On WebCrypto where the runtime has it, in plain JavaScript on React
+   * Native.
+   */
+  async revealCardSecrets(cardId: string, params: CardProviderParams = {}): Promise<CardSecrets> {
+    const { publicKeyPem } = await getCardSecretsPublicKey(this._api, params.cardProviderId);
+    const session = await createCardSecretsSession(publicKeyPem);
+    const encrypted = await getCardSecrets(this._api, cardId, { ...params, sessionId: session.sessionId });
+    return openCardSecrets(session, encrypted);
   }
 
   private _setTxHistoryState(next: TxHistoryState): void {
@@ -4452,21 +4707,6 @@ export class PollarClient {
     // Applied identically to `wallet` and to every entry of `wallets[]` so the
     // back-compat field and the array can't end up describing the same wallet
     // differently.
-    const toPersistedWallet = (w: PollarApplicationConfigContent['wallet']): PollarPersistedWallet => ({
-      type: w.type,
-      // `provider` (the login method) was added to the wire after the generated
-      // OpenAPI types were last cut, so read it defensively until they're regen'd.
-      ...((w as { provider?: string }).provider ? { provider: (w as { provider?: string }).provider as string } : {}),
-      address: w.address ?? w.publicKey ?? null,
-      ...(w.chain !== undefined ? { chain: w.chain } : {}),
-      ...(w.existsOnStellar !== undefined ? { existsOnStellar: w.existsOnStellar } : {}),
-      ...(w.provisioning !== undefined ? { provisioning: w.provisioning } : {}),
-      ...(w.fundingMode !== undefined ? { fundingMode: w.fundingMode } : {}),
-      ...(w.createdAt !== undefined ? { createdAt: w.createdAt } : {}),
-      ...(w.linkedAt !== undefined ? { linkedAt: w.linkedAt } : {}),
-      ...(w.network !== undefined ? { network: w.network } : {}),
-      ...(w.deployTxHash !== undefined ? { deployTxHash: w.deployTxHash } : {}),
-    });
 
     // Record which DPoP key this session's tokens are bound to (= the token's
     // `cnf.jkt`) so a later restore can detect key loss up front instead of

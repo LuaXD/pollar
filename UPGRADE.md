@@ -68,18 +68,21 @@ No migration steps for an app that uses the built-in components. The wallet
 reports where its on-chain Stellar account stands, the client watches it until
 the account lands, a DPoP proof rejected over clock skew is re-signed instead of
 clearing the session, every request carries an `x-pollar-sdk` build header,
-ramp quotes report the requirement steps a route still needs, and the wallet
-modals follow the new design. `@pollar/react@0.11.4` requires
-`@pollar/core@^0.11.4`; if you pin both packages to exact versions, keep them on
-the same version. The four adapters stay at 0.11.2 - their
-`@pollar/core@^0.11.2` range already resolves 0.11.4.
+ramp quotes report the requirement steps a route still needs, the wallet
+modals follow the new design, apps can offer cards, and an app can create its
+users' wallets on demand. `@pollar/react@0.11.4` and
+`@pollar/react-native@0.11.4` require `@pollar/core@^0.11.4`; if you pin the
+packages to exact versions, keep them on the same version.
 
-**Release candidate.** `0.11.4-rc.1` is published on the `next` tag. A caret
-range does not pick up a prerelease, so install it explicitly
-(`npm i @pollar/core@next @pollar/react@next`, or `@pollar/react-native@next`);
-`@pollar/react@0.11.4-rc.1` and `@pollar/react-native@0.11.4-rc.1` require
-`@pollar/core@^0.11.4-rc.1`. `@pollar/react-native` moves from `0.1.1` to the
-SDK's version line.
+**Adapters.** They are not part of this release. On npm,
+`@pollar/stellar-wallets-kit-adapter@0.11.2` (`@pollar/core@^0.11.2`) and
+`@pollar/privy-adapter@0.11.1` (`^0.11.1`) already accept core 0.11.4.
+`@pollar/accesly-adapter@0.10.1` asks for `@pollar/core@^0.10.1`, which does
+not: npm 7+ refuses that install unless you pass `--legacy-peer-deps`.
+
+**`@pollar/react-native` joins the SDK's version line,** from `0.1.1` to
+`0.11.4`. A `^0.1.1` range does not pick it up: install
+`@pollar/react-native@^0.11.4` with `@pollar/core@^0.11.4`.
 
 **License.** From 0.11.4 the packages are licensed under Apache-2.0 (earlier
 versions stay MIT). Both are permissive; Apache-2.0 adds an explicit patent
@@ -173,6 +176,33 @@ sdk-api that does not list it in its CORS `allowHeaders` fails the preflight and
 takes down every browser app on that origin. Pollar's hosted sdk-api allows it.
 If you run sdk-api yourself, deploy the allowlist change **before** upgrading
 the SDK.
+
+### Wallets created on demand
+
+Nothing changes for an app that creates wallets at login, the default. If you
+set wallet creation to **on demand** (or **never**) in the dashboard, a user
+signs in without a wallet:
+
+- `WalletProvisioning` includes `'NONE'`. An exhaustive `switch` over it needs
+  the new case.
+- Signed in means having a session, not having an address: `getWallet()` can be
+  `null` for a signed-in user. Check `client.hasWallet()` (or `hasWallet` from
+  `usePollar()`), which counts a wallet on any chain.
+- Create the wallet with `client.createWallet()` (or `createWallet` from
+  `usePollar()`) when your app needs it. `<WalletButton>` offers it on its own.
+- A signing call made without a wallet returns `SDK_WALLET_REQUIRED`; recognize
+  it with `isWalletRequired()`.
+
+Turn on demand on only once your app runs 0.11.4: an older SDK cannot create
+the wallet after the login.
+
+### Cards
+
+Additive: nothing to change unless you enable a card provider in the dashboard.
+Then open `<CardModal>` with `openCardModal()` from `usePollar()`, or build your
+own flow on the card methods of `PollarClient`. The card number from
+`revealCardSecrets()` is decrypted on the device: show it and drop it, never
+store or log it.
 
 See the [CHANGELOG](./CHANGELOG.md) for the details.
 

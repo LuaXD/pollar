@@ -45,7 +45,7 @@ export type {
 export type * from './types';
 export { AUTH_ERROR_CODES, PollarNetworkError, isPollarNetworkError, PollarApiError, isPollarApiError } from './types';
 export { RampChain } from './types';
-export { WALLET_NOT_READY_CODE, isWalletNotReady } from './types';
+export { WALLET_NOT_READY_CODE, isWalletNotReady, WALLET_REQUIRED_CODE, isWalletRequired } from './types';
 export { PollarApiClient } from './api/client';
 export type { paths as pollarPaths } from './api/schema';
 export { isValidSession } from './client/session';
@@ -92,3 +92,28 @@ export { getEarnProviders, getEarnOpportunities, getEarnPosition, buildEarnTx } 
 
 export { describeRampAction, mergeRampSnapshot, mergeRampCountries } from './ramps/workflow';
 export type { RampSnapshot, RampSigningHandler } from './ramps/workflow';
+// --- Cards endpoints ----------------------------------------------------------
+export {
+  getCardProviders,
+  getCardHolder,
+  createCardHolder,
+  submitCardKyc,
+  getCardOccupations,
+  getCards,
+  issueCard,
+  getCardBalance,
+  getCardTransactions,
+  getCardDepositAddresses,
+  getCardSecretsPublicKey,
+  getCardSecrets,
+  createCardFunding,
+  submitCardFundingSignature,
+  getCardFunding,
+  listCardFundings,
+  getCardRequirements,
+  getCardProviderRegistration,
+  submitCardProviderRegistration,
+} from './api/endpoints/cards';
+export type { EncryptedCardSecrets } from './api/endpoints/cards';
+export { createCardSecretsSession, openCardSecrets } from './lib/card-secrets';
+export type { CardSecretsSession, CardSecretsEngine } from './lib/card-secrets';
