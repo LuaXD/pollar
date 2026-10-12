@@ -1,4 +1,4 @@
-import { TransactionState, WalletType } from '@pollar/core';
+import { TransactionState, WalletId, WalletType } from '@pollar/core';
 import React from 'react';
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Linking, Image } from 'react-native';
 import { LOGO_ALBEDO, LOGO_FREIGHTER, LOGO_POLLAR } from '../../constants';
@@ -11,7 +11,7 @@ export interface TransactionModalTemplateProps {
   showXdr: boolean;
   copied: boolean;
   explorerUrl: string | null;
-  walletType?: WalletType | null;
+  walletType?: WalletId | null;
   onClose: () => void;
   onSignAndSend: () => void;
   onToggleXdr: () => void;
@@ -23,15 +23,17 @@ const STATUS_MESSAGES: Record<TransactionState['step'], string> = {
   idle: '',
   building: 'Building transaction…',
   built: 'Ready to sign and send',
-  signing: 'Signing and sending transaction…',
-  signed: 'Signed; not submitted',
+  signing: 'Signing transaction…',
+  signed: 'Signed — ready to submit',
   submitting: 'Submitting transaction…',
-  'signing-submitting': 'Signing and submitting…',
-  'building-signing-submitting': 'Building, signing and submitting…',
-  submitted: 'Submitted; awaiting confirmation',
+  submitted: 'Submitted — waiting for confirmation…',
+  'signing-submitting': 'Signing and submitting transaction…',
+  'building-signing-submitting': 'Processing transaction…',
   success: 'Transaction sent successfully',
   error: 'Transaction failed',
 };
+
+const SENDING_STEPS = new Set<TransactionState['step']>(['signing', 'signed', 'submitting', 'signing-submitting', 'submitted']);
 
 export function TransactionModalTemplate({
   theme,
@@ -64,7 +66,7 @@ export function TransactionModalTemplate({
   const errorDetails = transaction.step === 'error' ? (transaction.details ?? null) : null;
 
   const isBuilt = transaction.step === 'built';
-  const isSigning = transaction.step === 'signing';
+  const isSigning = SENDING_STEPS.has(transaction.step);
   const isSuccess = transaction.step === 'success';
   const isError = transaction.step === 'error';
   const showDetails = buildData !== null && (isBuilt || isSigning || isSuccess);
@@ -192,7 +194,15 @@ export function TransactionModalTemplate({
 
         <ModalStatusBanner
           message={STATUS_MESSAGES[transaction.step] || ''}
-          status={isError ? 'ERROR' : isSigning || transaction.step === 'building' ? 'LOADING' : isSuccess ? 'SUCCESS' : 'NONE'}
+          status={
+            isError
+              ? 'ERROR'
+              : isSigning || transaction.step === 'building' || transaction.step === 'building-signing-submitting'
+                ? 'LOADING'
+                : isSuccess
+                  ? 'SUCCESS'
+                  : 'NONE'
+          }
         />
 
         <PollarModalFooter />

@@ -50,7 +50,12 @@ const snapshot = {
     }).qr,
     null,
   );
-  assert.equal(sdk.safeRampUrl('javascript:alert(1)'), null);
+  assert.equal(sdk.RampSigningRegistry, undefined);
+  assert.equal(sdk.safeRampUrl, undefined);
+  assert.deepEqual(
+    sdk.describeRampAction({ ...snapshot, nextAction: { kind: 'redirect', url: 'javascript:alert(1)' } }).links,
+    [],
+  );
   const verification = sdk.describeRampAction({
     ...snapshot,
     nextAction: {
@@ -74,8 +79,8 @@ const snapshot = {
   assert.equal(sequential.links.length, 1);
   let signs = 0,
     continuations = 0;
-  const client = Object.create(sdk.PollarClient.prototype);
-  client._rampSigners = new sdk.RampSigningRegistry();
+  const client = new sdk.PollarClient({ apiKey: 'fixture', logLevel: 'silent' });
+  client.destroy();
   client.getRampTransaction = async () => snapshot;
   client.continueRamp = async (txId, body) => {
     assert.equal(txId, snapshot.txId);
@@ -129,11 +134,24 @@ const snapshot = {
   process.exitCode = 1;
 });
 
-const { safeRampPng, rampReplacementQuote, PollarApiError } = require('../packages/core/dist/index.js');
+const { describeRampAction, rampReplacementQuote, PollarApiError } = require('../packages/core/dist/index.js');
+const qrImage = (payload) =>
+  describeRampAction({
+    ...snapshot,
+    nextAction: {
+      kind: 'qr_payment',
+      actionId: 'qr',
+      encoding: 'png_base64',
+      payload,
+      amount: '20',
+      currency: 'BOB',
+      expiresAt: null,
+    },
+  }).qrImage;
 const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a7a0AAAAASUVORK5CYII=';
-assert.equal(safeRampPng(png), 'data:image/png;base64,' + png);
-assert.equal(safeRampPng('data:image/svg+xml;base64,PHN2Zz4='), null);
-assert.equal(safeRampPng('iVBORw0KGgo<script>'), null);
+assert.equal(qrImage(png), 'data:image/png;base64,' + png);
+assert.equal(qrImage('data:image/svg+xml;base64,PHN2Zz4='), null);
+assert.equal(qrImage('iVBORw0KGgo<script>'), null);
 const replacement = {
   quoteId: 'replacement',
   expiresAt: new Date(Date.now() + 900000).toISOString(),

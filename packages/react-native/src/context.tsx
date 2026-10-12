@@ -12,6 +12,14 @@ import { ActivityIndicator, Text } from 'react-native';
 import type { PollarConfig, PollarStyles } from './types';
 import type { FeatureName } from './components/FeaturePanel';
 import { FeatureModal } from './components/FeatureModal';
+import { ModalErrorBoundary } from './components/commons';
+import { AppKycFlow } from './components/kyc-modal/AppKycFlow';
+import { CardModal } from './components/card-modal/CardModal';
+import { LoginModal } from './components/login-modal/LoginModal';
+import { RampWidget } from './components/ramp-widget/RampWidget';
+import { TransactionModal } from './components/transaction-modal/TransactionModal';
+import { TxHistoryModal } from './components/tx-history-modal/TxHistoryModal';
+import { WalletBalanceModal } from './components/wallet-balance-modal/WalletBalanceModal';
 import { PollarUIProvider } from './components/layout';
 
 export interface NativePlatformAdapters {
@@ -21,7 +29,7 @@ export interface NativePlatformAdapters {
   openAuthUrl?: PollarClientConfig['openAuthUrl'];
 }
 export interface PollarProviderProps {
-  /** Remount when changing application credentials. */
+  /** Configuration changes replace and clean up the owned client. Memoize object-valued adapters. */
   config: PollarClientConfig;
   appConfig?: PollarConfig;
   styles?: PollarStyles;
@@ -33,6 +41,7 @@ export interface PollarProviderProps {
 }
 const methods = [
   'login',
+  'createWallet',
   'buildTx',
   'signAndSubmitTx',
   'signTx',
@@ -75,6 +84,7 @@ type ModalMethods =
   | 'openKycModal'
   | 'openRampModal'
   | 'openRampWidget'
+  | 'openCardModal'
   | 'openTxHistoryModal'
   | 'openWalletBalanceModal'
   | 'openEnabledAssetsModal'
@@ -97,6 +107,8 @@ export type PollarContextValue = Methods &
     authState: AuthState;
     verified: boolean;
     isAuthenticated: boolean;
+    /** Whether the signed-in user has a wallet on any chain. */
+    hasWallet: boolean;
     logout: () => Promise<void>;
     network: ReturnType<PollarClient['getNetwork']>;
     setNetwork: PollarClient['setNetwork'];
@@ -123,34 +135,51 @@ export type PollarContextValue = Methods &
 const Context = createContext<PollarContextValue | null>(null);
 const emptyConfig: PollarConfig = { application: { name: '', network: 'testnet', chains: [] }, styles: {} };
 
+// Preserve equivalent inline scalar configuration without restarting the owned client.
+function useStableConfig(value: PollarClientConfig): PollarClientConfig {
+  const stable = useRef(value);
+  const keys = Object.keys(value) as Array<keyof PollarClientConfig>;
+  if (keys.length !== Object.keys(stable.current).length || keys.some((key) => value[key] !== stable.current[key]))
+    stable.current = value;
+  return stable.current;
+}
+
 // Creation occurs after commit. An abandoned Strict Mode render never starts a client.
 export function PollarProvider(props: PollarProviderProps) {
-  const initial = useRef(props);
+  const config = useStableConfig(props.config);
+  const adapter = props.privyAdapter;
+  const storage = props.platform?.storage;
+  const visibilityProvider = props.platform?.visibilityProvider;
+  const openAuthUrl = props.platform?.openAuthUrl;
+  const clientConfig = useMemo(
+    () => ({
+      ...config,
+      ...(storage ? { storage } : {}),
+      ...(visibilityProvider ? { visibilityProvider } : {}),
+      ...(openAuthUrl ? { openAuthUrl } : {}),
+      walletAdapters: [...(config.walletAdapters ?? []), ...(adapter ? [adapter] : [])],
+    }),
+    [config, storage, visibilityProvider, openAuthUrl, adapter],
+  );
+  const generation = useRef(0);
   const [runtime, setRuntime] = useState<{
     client: PollarClient;
+    config: PollarClientConfig;
+    generation: number;
     adapter?: InteractiveAuthAdapter;
     Host?: React.ComponentType<{ children: React.ReactNode }>;
   }>();
   const [error, setError] = useState('');
   useEffect(() => {
     let active = true;
+    setError('');
     let owned: PollarClient | undefined;
     void (async () => {
       // Let Strict Mode's setup/cleanup finish before allocating resources.
       await Promise.resolve();
       if (!active) return;
-      const p = initial.current;
-      const input = p.config;
-      const adapter = p.privyAdapter;
-      if (!active) return;
-      owned = new PollarClient({
-        ...input,
-        ...(p.platform?.storage ? { storage: p.platform.storage } : {}),
-        ...(p.platform?.visibilityProvider ? { visibilityProvider: p.platform.visibilityProvider } : {}),
-        ...(p.platform?.openAuthUrl ? { openAuthUrl: p.platform.openAuthUrl } : {}),
-        walletAdapters: [...(input.walletAdapters ?? []), ...(adapter ? [adapter] : [])],
-      });
-      setRuntime({ client: owned, ...(adapter ? { adapter } : {}) });
+      owned = new PollarClient(clientConfig);
+      setRuntime({ client: owned, config: clientConfig, generation: ++generation.current, ...(adapter ? { adapter } : {}) });
     })().catch((e: unknown) => {
       if (active) setError(e instanceof Error ? e.message : String(e));
     });
@@ -159,10 +188,10 @@ export function PollarProvider(props: PollarProviderProps) {
       owned?.cancelLogin();
       owned?.destroy();
     };
-  }, []);
+  }, [clientConfig, adapter]);
   if (error) return <Text accessibilityRole="alert">{error}</Text>;
-  if (!runtime) return <ActivityIndicator accessibilityLabel="Initializing Pollar" />;
-  const content = <ClientProvider {...props} runtime={runtime} />;
+  if (!runtime || runtime.config !== clientConfig) return <ActivityIndicator accessibilityLabel="Initializing Pollar" />;
+  const content = <ClientProvider key={runtime.generation} {...props} runtime={runtime} />;
   return runtime.Host ? <runtime.Host>{content}</runtime.Host> : content;
 }
 
@@ -178,7 +207,12 @@ function ClientProvider({
 }) {
   const client = runtime.client;
   const [, update] = useState(0);
-  const [modal, setModal] = useState<FeatureName | null>(null);
+  const [modal, setModal] = useState<FeatureName | 'cards' | null>(null);
+  const [kycOptions, setKycOptions] = useState<{
+    country?: string;
+    level?: 'basic' | 'intermediate' | 'enhanced';
+    onApproved?: () => void;
+  }>({});
   const [ramp, setRamp] = useState<NativeRampState | null>(null);
   const [remote, setRemote] = useState<PollarConfig>(appConfig ?? emptyConfig);
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(appConfig ? 'ready' : 'loading');
@@ -226,15 +260,17 @@ function ClientProvider({
     };
   }, [client, appConfig, retry]);
   const auth = client.getAuthState();
+  const previousAuthStep = useRef(auth.step);
   useEffect(() => {
-    if (auth.step === 'idle') {
+    if (previousAuthStep.current === 'authenticated' && auth.step === 'idle') {
       setRamp(null);
       setModal(null);
     }
+    previousAuthStep.current = auth.step;
   }, [auth.step]);
   const wallet = client.getWallet();
   const tx = client.getTransactionState() ?? { step: 'idle' as const };
-  const open = (next: FeatureName) => {
+  const open = (next: FeatureName | 'cards') => {
     if (modal === 'authentication' && next !== modal) client.cancelLogin();
     setModal(next);
   };
@@ -259,6 +295,7 @@ function ClientProvider({
     walletType: client.getWalletType(),
     authState: auth,
     isAuthenticated: auth.step === 'authenticated',
+    hasWallet: client.hasWallet(),
     verified: auth.step === 'authenticated' && auth.verified,
     logout: async () => {
       client.cancelLogin();
@@ -316,9 +353,13 @@ function ClientProvider({
     openEnabledAssetsModal: () => open('assets'),
     openTxHistoryModal: () => open('history'),
     openSessionsModal: () => open('sessions'),
-    openKycModal: () => open('kyc'),
+    openKycModal: (options = {}) => {
+      setKycOptions(options);
+      open('kyc');
+    },
     openRampModal: () => open('ramp'),
     openRampWidget: () => open('ramp'),
+    openCardModal: () => open('cards'),
     openSwapModal: () => open('swap'),
     openEarnModal: () => open('earn'),
     openDistributionRulesModal: () => open('distribution'),
@@ -327,7 +368,27 @@ function ClientProvider({
     <Context.Provider value={value}>
       <PollarUIProvider theme={value.styles.theme === 'dark' ? 'dark' : 'light'}>
         {children}
-        <FeatureModal feature={modal} visible={modal !== null} onClose={close} />
+        {modal && (
+          <ModalErrorBoundary onClose={close}>
+            {modal === 'authentication' ? (
+              <LoginModal onClose={close} />
+            ) : modal === 'kyc' ? (
+              <AppKycFlow onClose={close} {...kycOptions} />
+            ) : modal === 'ramp' ? (
+              <RampWidget onClose={close} />
+            ) : modal === 'cards' ? (
+              <CardModal key={wallet?.address ?? ''} onClose={close} />
+            ) : modal === 'transactions' ? (
+              <TransactionModal onClose={close} />
+            ) : modal === 'history' ? (
+              <TxHistoryModal onClose={close} />
+            ) : modal === 'wallet' ? (
+              <WalletBalanceModal onClose={close} />
+            ) : (
+              <FeatureModal feature={modal} onClose={close} />
+            )}
+          </ModalErrorBoundary>
+        )}
       </PollarUIProvider>
     </Context.Provider>
   );

@@ -51,6 +51,7 @@ function fakeClient() {
   client.getWallet = () =>
     client.auth.step === 'authenticated' ? { custody: 'internal', address: 'GTEST', provider: 'email' } : null;
   client.getWallets = () => (client.getWallet() ? [client.getWallet()] : []);
+  client.hasWallet = () => client.getWallets().length > 0;
   client.getWalletType = () => null;
   client.getNetwork = () => 'testnet';
   client.getWalletBalanceState = () => client.balance;
@@ -58,6 +59,7 @@ function fakeClient() {
     client[name] = () => ({ step: 'idle' });
   for (const name of [
     'login',
+    'createWallet',
     'buildTx',
     'signAndSubmitTx',
     'signTx',
@@ -96,6 +98,7 @@ function fakeClient() {
     'refreshBalance',
   ])
     client[name] = jest.fn(async () => {});
+  client.getKycProviders = jest.fn(async () => ({ providers: [] }));
   client.getRampRoutes = jest.fn(async () => ({ routes: [] }));
   client.getAppConfig = jest.fn(async () => config);
   client.logout = jest.fn(async () => {
@@ -130,6 +133,62 @@ function Probe() {
   );
 }
 beforeEach(() => jest.clearAllMocks());
+
+test('a signed-in user without a wallet can create a Solana wallet through native context', async () => {
+  const client = fakeClient();
+  client.auth = { step: 'authenticated', verified: true, session: { clientSessionId: 'walletless' } };
+  client.getWallet = () => null;
+  let wallets = [];
+  client.getWallets = () => wallets;
+  const wallet = { chain: 'SOLANA', address: 'solana-fixture', custody: 'internal' };
+  client.createWallet.mockImplementation(async () => {
+    wallets = [wallet];
+    client.emit('Auth');
+    return wallet;
+  });
+  function WalletProbe() {
+    const p = usePollar();
+    return (
+      <>
+        <Text>{`signed in: ${p.isAuthenticated}, wallet: ${p.hasWallet}`}</Text>
+        <ActionButton title="Create wallet" onPress={() => void p.createWallet()} />
+      </>
+    );
+  }
+  const view = await renderAsync(
+    <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
+      <WalletProbe />
+    </PollarProvider>,
+  );
+  expect(view.getByText('signed in: true, wallet: false')).toBeTruthy();
+  await act(async () => fireEvent.press(view.getByText('Create wallet')));
+  expect(client.createWallet).toHaveBeenCalledTimes(1);
+  expect(view.getByText('signed in: true, wallet: true')).toBeTruthy();
+  expect(client.getWallet()).toBeNull();
+});
+
+test('native cards opener renders the cards modal and clears it when the session ends', async () => {
+  const client = fakeClient();
+  client.auth = { step: 'authenticated', verified: true, session: { clientSessionId: 'cards' } };
+  client.getCardProviders = jest.fn(async () => []);
+  function CardsProbe() {
+    const p = usePollar();
+    return <ActionButton title="Open cards" onPress={p.openCardModal} />;
+  }
+  const view = await renderAsync(
+    <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
+      <CardsProbe />
+    </PollarProvider>,
+  );
+  await act(async () => fireEvent.press(view.getByText('Open cards')));
+  await waitFor(() => expect(view.getByText('Cards are not available for this app.')).toBeTruthy());
+  expect(client.getCardProviders).toHaveBeenCalled();
+  await act(async () => {
+    client.auth = { step: 'idle' };
+    client.emit('Auth');
+  });
+  expect(view.queryByText('Cards are not available for this app.')).toBeNull();
+});
 
 test('earn provider changes clear old opportunities and block choices during loading', async () => {
   const client = fakeClient();
@@ -212,7 +271,11 @@ test('exported ramp and KYC components preserve native modal dismissal', async (
   );
   expect(onClose).toHaveBeenCalledTimes(1);
   await ramp.unmountAsync();
-  const kyc = render(<KycModal onClose={onClose} country="BO" />);
+  const kyc = await renderAsync(
+    <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
+      <KycModal onClose={onClose} country="BO" />
+    </PollarProvider>,
+  );
   fireEvent(kyc.UNSAFE_getByType(Modal), 'requestClose');
   expect(onClose).toHaveBeenCalledTimes(2);
 });
@@ -437,7 +500,7 @@ test('modal replacement uses one host and Android Back cancels login', async () 
   expect(view.UNSAFE_getAllByType(Modal)).toHaveLength(1);
   act(() => view.UNSAFE_getByType(Modal).props.onRequestClose());
   expect(client.cancelLogin).toHaveBeenCalled();
-  expect(view.UNSAFE_getByType(Modal).props.visible).toBe(false);
+  expect(view.UNSAFE_queryAllByType(Modal).filter((modal) => modal.props.visible)).toHaveLength(0);
 });
 test('failed remote configuration can be retried', async () => {
   const client = fakeClient();
@@ -705,7 +768,7 @@ test('registered Polygon route drives the native widget and resumes without sign
     transactionVersion: 3,
     nextAction: { kind: 'wait', actionId: 'wait', reason: 'settlement_verification' },
   }));
-  client._rampSigners = new core.RampSigningRegistry();
+  client._rampSigners = new (require('../../core/src/ramps/workflow').RampSigningRegistry)();
   client.signRampAction = core.PollarClient.prototype.signRampAction;
   const signer = jest.fn(async () => 'signed:unsigned');
   core.PollarClient.prototype.registerRampSigningHandler.call(client, 'POLYGON', 'fixture-json', signer);
@@ -736,4 +799,211 @@ test('registered Polygon route drives the native widget and resumes without sign
   await waitFor(() => expect(view.getByText('Confirming settlement')).toBeTruthy());
   expect(signer).toHaveBeenCalledTimes(1);
   expect(client.createOffRamp).toHaveBeenCalledTimes(1);
+});
+
+test('exported ramp combines registered routes, exact amounts and saved explicit signing', async () => {
+  const client = fakeClient();
+  client.auth = { step: 'authenticated', verified: true, session: { clientSessionId: 'generic-ramp' } };
+  const route = {
+    routeId: 'fixture:MX:offramp',
+    direction: 'offramp',
+    country: 'MX',
+    fiatCurrency: 'MXN',
+    rail: 'BANK',
+    asset: { code: 'NATIVE', identifier: null, chain: 'POLYGON', network: 'mainnet', precision: 12 },
+    limits: { denomination: 'fiat', min: null, max: null },
+  };
+  const terms = {
+    fiatAmount: '20.00',
+    fiatCurrency: 'MXN',
+    cryptoAmount: '1.123456789012',
+    assetCode: 'NATIVE',
+    assetChain: 'POLYGON',
+    assetIssuer: null,
+    feeAmount: '0',
+    feeCurrency: 'MXN',
+  };
+  client.getRampCountries.mockResolvedValue({ countries: [] });
+  client.getRampRoutes.mockResolvedValue({ routes: [route] });
+  client.getRampsQuote.mockResolvedValue({
+    quotes: [
+      {
+        quoteId: 'too-small',
+        provider: 'Minimum route',
+        minAmount: 30,
+        terms: { ...terms, fiatAmount: '30.00' },
+        requiredFields: [],
+        fee: 0,
+        rate: 20,
+        rail: 'BANK',
+        protocol: 'REST',
+      },
+      {
+        quoteId: 'fixture',
+        provider: 'Fixture',
+        route,
+        terms,
+        requiredFields: [],
+        fee: 0,
+        feeCurrency: 'MXN',
+        rate: 20,
+        rail: 'BANK',
+        protocol: 'REST',
+        estimatedTime: 'minutes',
+      },
+    ],
+  });
+  const saved = {
+    txId: 'generic-tx',
+    provider: 'Fixture',
+    status: 'pending',
+    lifecycleState: 'awaiting_payment',
+    transactionVersion: 2,
+    terms,
+    nextAction: {
+      kind: 'sign_transaction',
+      actionId: 'sign',
+      purpose: 'withdrawal_payment',
+      chain: 'POLYGON',
+      network: 'mainnet',
+      payload: { encoding: 'fixture-json', value: 'unsigned' },
+      expiresAt: new Date(Date.now() + 60000).toISOString(),
+    },
+  };
+  client.createOffRamp.mockResolvedValue(saved);
+  client.signRampAction = jest.fn(async () => ({
+    ...saved,
+    transactionVersion: 3,
+    nextAction: { kind: 'wait', actionId: 'wait', reason: 'settlement_verification' },
+  }));
+  function ReopenRamp() {
+    const [open, setOpen] = React.useState(true);
+    return open ? (
+      <RampWidget onClose={() => setOpen(false)} />
+    ) : (
+      <ActionButton title="Reopen ramp" onPress={() => setOpen(true)} />
+    );
+  }
+  const view = await renderAsync(
+    <PollarProvider config={{ apiKey: 'test' }} appConfig={config} styles={{ theme: 'dark', accentColor: '#abcdef' }}>
+      <ReopenRamp />
+    </PollarProvider>,
+  );
+  const routeText = view.getByText('offramp · MXN / NATIVE · POLYGON · BANK');
+  expect(routeText).toHaveStyle({ color: '#f3f4f6' });
+  fireEvent.press(routeText);
+  expect(view.getByRole('button', { selected: true })).toHaveStyle({ borderColor: '#abcdef' });
+  fireEvent.changeText(view.getByPlaceholderText('25.00'), '20');
+  await act(async () => fireEvent.press(view.getByText('Find routes')));
+  expect(client.getRampsQuote).toHaveBeenCalledWith(
+    expect.objectContaining({
+      routeId: route.routeId,
+      country: 'MX',
+      currency: 'MXN',
+      amountExact: '20',
+      chain: 'POLYGON',
+    }),
+  );
+  fireEvent.press(view.getByText('Minimum route'));
+  expect(view.getByText('The minimum amount for this route is 30 MXN.')).toBeTruthy();
+  expect(client.createOffRamp).not.toHaveBeenCalled();
+  await act(async () => fireEvent.press(view.getByText('Fixture')));
+  expect(client.createOffRamp).toHaveBeenCalledWith(expect.objectContaining({ amountExact: '20.00' }));
+  expect(view.getByText(/1.123456789012 NATIVE/)).toBeTruthy();
+  expect(client.signRampAction).not.toHaveBeenCalled();
+  act(() =>
+    view
+      .UNSAFE_getAllByType(Modal)
+      .find((modal) => modal.props.visible)
+      .props.onRequestClose(),
+  );
+  await act(async () => fireEvent.press(view.getByText('Reopen ramp')));
+  expect(view.getByText(/1.123456789012 NATIVE/)).toBeTruthy();
+  expect(client.signRampAction).not.toHaveBeenCalled();
+  await act(async () => fireEvent.press(view.getByText('Authorize')));
+  expect(client.signRampAction).toHaveBeenCalledTimes(1);
+  expect(view.queryByText('Authorize')).toBeNull();
+  await view.unmountAsync();
+});
+
+test('provider replaces configuration and platform/Privy adapters and cleans up subscriptions', async () => {
+  const first = fakeClient();
+  const view = await renderAsync(
+    <PollarProvider config={{ apiKey: 'first' }} appConfig={config}>
+      <Probe />
+    </PollarProvider>,
+  );
+  expect(first.listenerCount()).toBe(7);
+  const second = fakeClient();
+  const storage = { get: jest.fn(), set: jest.fn(), remove: jest.fn() };
+  const adapter = { type: 'privy', chains: ['STELLAR'] };
+  await view.rerenderAsync(
+    <PollarProvider config={{ apiKey: 'second' }} platform={{ storage }} privyAdapter={adapter} appConfig={config}>
+      <Probe />
+    </PollarProvider>,
+  );
+  expect(first.cancelLogin).toHaveBeenCalledTimes(1);
+  expect(first.destroy).toHaveBeenCalledTimes(1);
+  expect(first.listenerCount()).toBe(0);
+  expect(second.listenerCount()).toBe(7);
+  expect(PollarClient).toHaveBeenLastCalledWith(
+    expect.objectContaining({ apiKey: 'second', storage, walletAdapters: [adapter] }),
+  );
+  await view.rerenderAsync(
+    <PollarProvider config={{ apiKey: 'second' }} platform={{ storage }} privyAdapter={adapter} appConfig={config}>
+      <Probe />
+    </PollarProvider>,
+  );
+  expect(PollarClient).toHaveBeenCalledTimes(2);
+  const third = fakeClient();
+  const openAuthUrl = jest.fn();
+  await view.rerenderAsync(
+    <PollarProvider config={{ apiKey: 'second' }} platform={{ storage, openAuthUrl }} appConfig={config}>
+      <Probe />
+    </PollarProvider>,
+  );
+  expect(second.destroy).toHaveBeenCalledTimes(1);
+  expect(second.listenerCount()).toBe(0);
+  expect(PollarClient).toHaveBeenLastCalledWith(expect.objectContaining({ openAuthUrl, walletAdapters: [] }));
+  await view.unmountAsync();
+  expect(third.destroy).toHaveBeenCalledTimes(1);
+  expect(third.listenerCount()).toBe(0);
+});
+
+test('login Back and Retry keep the login modal open when authentication returns to idle', async () => {
+  const client = fakeClient();
+  client.cancelLogin.mockImplementation(() => {
+    client.auth = { step: 'idle' };
+    client.emit('Auth');
+  });
+  const view = await renderAsync(
+    <PollarProvider config={{ apiKey: 'test' }} appConfig={config}>
+      <Probe />
+    </PollarProvider>,
+  );
+  fireEvent.press(view.getByText('Login'));
+  act(() => {
+    client.auth = { step: 'entering_code', clientSessionId: 'email', email: 'test@example.com' };
+    client.emit('Auth');
+  });
+  fireEvent.press(view.getByText('←'));
+  expect(view.getByText('Log in or sign up')).toBeTruthy();
+  expect(view.UNSAFE_getAllByType(Modal).filter((modal) => modal.props.visible)).toHaveLength(1);
+  act(() => {
+    client.auth = { step: 'error', errorCode: 'NETWORK_ERROR', message: 'Offline' };
+    client.emit('Auth');
+  });
+  await act(async () => fireEvent.press(view.getByText('Retry')));
+  expect(view.getByText('Log in or sign up')).toBeTruthy();
+  expect(view.UNSAFE_getAllByType(Modal).filter((modal) => modal.props.visible)).toHaveLength(1);
+  act(() => {
+    client.auth = { step: 'authenticated', verified: true, session: { clientSessionId: 'email' } };
+    client.emit('Auth');
+  });
+  act(() => {
+    client.auth = { step: 'idle' };
+    client.emit('Auth');
+  });
+  expect(view.UNSAFE_queryAllByType(Modal).filter((modal) => modal.props.visible)).toHaveLength(0);
+  await view.unmountAsync();
 });

@@ -562,3 +562,11 @@ New Stereum routes require unchanged financial totals on refresh. A changed quot
 Seven lifecycle states remain unchanged. Intermediate Polygon/Stellar proofs cannot establish completion; verified source/destination settlement and exact authenticated BOB receipt/payout evidence remain mandatory. Recovery is manual and audited; no treasury top-ups or automatic refunds are added. Legacy transactions, pre-transaction keys and their recovery tools retain separate ownership. Production cutover must drain every legacy account writer; rollback preserves reconciliation of accepted work.
 
 This addendum records implemented local interfaces, not a released migration. Live Stereum enrollment is disabled because authenticated fiat evidence readers are missing. Synthetic fixtures do not satisfy that gate. See the [updated worked examples](../design/dev-8-ramp-adapter-and-user-experience.md#10-stereum-worked-examples-and-execution-plan-extension) and the matching backend `STEREUM-ADAPTER.md`.
+
+The production DEV-7 enum decision closes ramp chain identifiers to `RampChain`
+(`STELLAR`, `POLYGON`, `SOLANA`), independently of `WalletNetwork`. The SDK's
+quote filters, routes, terms, transactions and signing registrations preserve
+that catalog. Network stays separate, CAIP-2 identifiers are derived when
+needed, and exact amount strings are unchanged. This supersedes earlier
+open-chain proposals; adding a chain requires a database enum migration and a
+matching SDK contract update.

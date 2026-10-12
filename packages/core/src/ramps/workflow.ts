@@ -1,10 +1,11 @@
-import type { RampAction, RampChain, RampRoute, RampCountry, RampsTransactionResponse, RampQuote } from '../types';
+import { assertRampChain } from './chains';
+import type { RampChain, RampAction, RampRoute, RampCountry, RampsTransactionResponse, RampQuote } from '../types';
 export type RampSigningAction = Extract<RampAction, { kind: 'sign_transaction' }>;
 export type RampSigningHandler = (action: RampSigningAction) => Promise<string>;
 export class RampSigningRegistry {
   private readonly handlers = new Map<string, RampSigningHandler>();
   register(chain: RampChain, encoding: string, handler: RampSigningHandler) {
-    if (!['STELLAR', 'POLYGON', 'SOLANA'].includes(chain)) throw new Error('Unsupported ramp chain');
+    assertRampChain(chain);
     const key = JSON.stringify([chain, encoding]);
     if (this.handlers.has(key)) throw new Error('Ramp signing handler already registered');
     this.handlers.set(key, handler);
@@ -13,6 +14,7 @@ export class RampSigningRegistry {
     };
   }
   resolve(chain: RampChain, encoding: string) {
+    assertRampChain(chain);
     return this.handlers.get(JSON.stringify([chain, encoding]));
   }
 }
